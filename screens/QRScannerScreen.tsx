@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, CommonActions, useIsFocused } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -344,7 +344,7 @@ function QRScannerScreenContent({ userId: propUserId }: QRScannerScreenProps) {
     <View style={styles.container}>
       <CameraView
         style={styles.camera}
-        facing={CameraType.back}
+        facing="back"
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         barcodeScannerSettings={{
           barcodeTypes: ['qr'],

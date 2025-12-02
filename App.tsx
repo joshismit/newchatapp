@@ -160,7 +160,7 @@ export default function App() {
       <NavigationContainer>
         <StatusBar style="auto" />
         <Stack.Navigator
-          initialRouteName="Login"
+          initialRouteName={Platform.OS === 'web' ? 'DesktopLogin' : 'Login'}
           screenOptions={{
             headerShown: false,
           }}

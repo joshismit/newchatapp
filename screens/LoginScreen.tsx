@@ -26,7 +26,13 @@ export default function LoginScreen() {
   };
 
   const handleScanQR = () => {
+    // Mobile: Navigate to QR scanner
     navigation.navigate('QRScanner');
+  };
+
+  const handleDesktopLogin = () => {
+    // Desktop/Web: Navigate to desktop login (QR code display)
+    navigation.navigate('DesktopLogin');
   };
 
   return (
@@ -86,10 +92,21 @@ export default function LoginScreen() {
           <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.qrButton} onPress={handleScanQR}>
-          <Ionicons name="qr-code-outline" size={20} color="#25D366" />
-          <Text style={styles.qrButtonText}>Scan QR Code for Desktop Login</Text>
-        </TouchableOpacity>
+        {/* Mobile: Scan QR Code button */}
+        {Platform.OS !== 'web' && (
+          <TouchableOpacity style={styles.qrButton} onPress={handleScanQR}>
+            <Ionicons name="qr-code-outline" size={20} color="#25D366" />
+            <Text style={styles.qrButtonText}>Scan QR Code for Desktop Login</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Desktop/Web: Show QR Code button */}
+        {Platform.OS === 'web' && (
+          <TouchableOpacity style={styles.qrButton} onPress={handleDesktopLogin}>
+            <Ionicons name="qr-code-outline" size={20} color="#25D366" />
+            <Text style={styles.qrButtonText}>Login with QR Code</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
