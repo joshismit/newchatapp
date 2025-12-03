@@ -11,7 +11,7 @@ dotenv.config();
 
 const app: Express = express();
 // Render provides PORT via environment variable
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 // MongoDB connection - uses MONGO_URI from environment variables
 const MONGO_URI = getMongoURI();
 

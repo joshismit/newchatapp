@@ -39,10 +39,18 @@ export const initRedis = (config: RedisConfig = {}): void => {
   };
 
   // Publisher connection (for sending events)
-  publisher = new Redis(process.env.REDIS_URL || redisOptions);
+  if (process.env.REDIS_URL) {
+    publisher = new Redis(process.env.REDIS_URL);
+  } else {
+    publisher = new Redis(redisOptions);
+  }
 
   // Subscriber connection (for receiving events)
-  subscriber = new Redis(process.env.REDIS_URL || redisOptions);
+  if (process.env.REDIS_URL) {
+    subscriber = new Redis(process.env.REDIS_URL);
+  } else {
+    subscriber = new Redis(redisOptions);
+  }
 
   // Handle connection errors
   publisher.on('error', (err) => {
@@ -61,9 +69,13 @@ export const initRedis = (config: RedisConfig = {}): void => {
     console.log('✅ Redis Subscriber connected');
   });
 
-  // Connect to Redis
-  publisher.connect().catch(console.error);
-  subscriber.connect().catch(console.error);
+  // Connect to Redis (ioredis connects automatically, but we call connect() explicitly since lazyConnect is true)
+  if (publisher && typeof publisher.connect === 'function') {
+    (publisher as any).connect().catch(console.error);
+  }
+  if (subscriber && typeof subscriber.connect === 'function') {
+    (subscriber as any).connect().catch(console.error);
+  }
 };
 
 /**

@@ -69,137 +69,139 @@
 				{
 					"name": "QR Login Flow",
 					"item": [
-				{
-					"name": "Create QR Challenge",
-					"event": [
 						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    const jsonData = pm.response.json();",
-									"    pm.environment.set('challengeId', jsonData.challengeId);",
-									"    pm.environment.set('qrPayload', jsonData.qrPayload);",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/auth/qr-challenge",
-							"host": ["{{base_url}}"],
-							"path": ["auth", "qr-challenge"]
-						},
-						"description": "Create a new QR challenge token for desktop login"
-					},
-					"response": []
-				},
-				{
-					"name": "Scan QR Code (Mobile)",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    const jsonData = pm.response.json();",
-									"    pm.environment.set('challengeId', jsonData.challengeId);",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"token\": \"{{qrPayload}}\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/qr-scan",
-							"host": ["{{base_url}}"],
-							"path": ["auth", "qr-scan"]
-						},
-						"description": "Mobile app scans QR code and authorizes (userId extracted from JWT token)"
-					},
-					"response": []
-				},
-				{
-					"name": "Check QR Status",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/auth/qr-status?challengeId={{challengeId}}",
-							"host": ["{{base_url}}"],
-							"path": ["auth", "qr-status"],
-							"query": [
+							"name": "Create QR Challenge",
+							"event": [
 								{
-									"key": "challengeId",
-									"value": "{{challengeId}}"
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const jsonData = pm.response.json();",
+											"    pm.environment.set('challengeId', jsonData.challengeId);",
+											"    pm.environment.set('qrPayload', jsonData.qrPayload);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
 								}
-							]
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/auth/qr-challenge",
+									"host": ["{{base_url}}"],
+									"path": ["auth", "qr-challenge"]
+								},
+								"description": "Create a new QR challenge token for desktop login"
+							},
+							"response": []
 						},
-						"description": "Check QR challenge status (pending/authorized/expired)"
-					},
-					"response": []
-				},
-				{
-					"name": "Confirm QR Challenge",
-					"event": [
 						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    const jsonData = pm.response.json();",
-									"    if (jsonData.success && jsonData.token) {",
-									"        pm.environment.set('jwt_token', jsonData.token);",
-									"        if (jsonData.user && jsonData.user.id) {",
-									"            pm.environment.set('testUserId', jsonData.user.id);",
-									"        }",
-									"    }",
-									"}"
+							"name": "Scan QR Code (Mobile)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const jsonData = pm.response.json();",
+											"    pm.environment.set('challengeId', jsonData.challengeId);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{jwt_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
 								],
-								"type": "text/javascript"
-							}
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"token\": \"{{qrPayload}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/qr-scan",
+									"host": ["{{base_url}}"],
+									"path": ["auth", "qr-scan"]
+								},
+								"description": "Mobile app scans QR code and authorizes (userId extracted from JWT token)"
+							},
+							"response": []
+						},
+						{
+							"name": "Check QR Status",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/auth/qr-status?challengeId={{challengeId}}",
+									"host": ["{{base_url}}"],
+									"path": ["auth", "qr-status"],
+									"query": [
+										{
+											"key": "challengeId",
+											"value": "{{challengeId}}"
+										}
+									]
+								},
+								"description": "Check QR challenge status (pending/authorized/expired)"
+							},
+							"response": []
+						},
+						{
+							"name": "Confirm QR Challenge",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    const jsonData = pm.response.json();",
+											"    if (jsonData.success && jsonData.token) {",
+											"        pm.environment.set('jwt_token', jsonData.token);",
+											"        if (jsonData.user && jsonData.user.id) {",
+											"            pm.environment.set('testUserId', jsonData.user.id);",
+											"        }",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"challengeId\": \"{{challengeId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/qr-confirm",
+									"host": ["{{base_url}}"],
+									"path": ["auth", "qr-confirm"]
+								},
+								"description": "Desktop confirms QR challenge and receives JWT token"
+							},
+							"response": []
 						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"challengeId\": \"{{challengeId}}\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/qr-confirm",
-							"host": ["{{base_url}}"],
-							"path": ["auth", "qr-confirm"]
-						},
-						"description": "Desktop confirms QR challenge and receives JWT token"
-					},
-					"response": []
+					]
 				}
 			]
 		},

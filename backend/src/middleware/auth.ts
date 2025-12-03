@@ -6,6 +6,8 @@ export interface AuthRequest extends Request {
     userId: string;
     phone?: string;
   };
+  file?: Express.Multer.File;
+  files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
 }
 
 export const authenticate = async (
