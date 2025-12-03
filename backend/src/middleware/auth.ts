@@ -1,9 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, extractTokenFromHeader } from '../utils/jwt';
 
-// Import types to ensure they're available
-import '../types/express';
-
 export interface AuthRequest extends Request {
   user?: {
     userId: string;

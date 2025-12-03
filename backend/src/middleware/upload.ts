@@ -1,6 +1,5 @@
 import multer from 'multer';
 import { Request } from 'express';
-import '../types/express';
 
 // Configure multer to use memory storage (for S3) or disk storage (for local)
 const storage = multer.memoryStorage();

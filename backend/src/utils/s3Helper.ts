@@ -4,7 +4,6 @@ import { customAlphabet } from 'nanoid';
 import * as fs from 'fs';
 import * as path from 'path';
 import multer from 'multer';
-import '../types/express';
 
 // Use Express.Multer.File type (non-nullable)
 type MulterFile = NonNullable<Express.Request['file']>;

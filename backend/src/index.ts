@@ -3,8 +3,6 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
-// Import types to ensure they're available
-import './types/express';
 // SSE routes
 import sseRoutes from './routes/sseRoutes';
 import { getMongoURI } from './utils/dbConfig';
