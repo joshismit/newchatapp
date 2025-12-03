@@ -154,10 +154,10 @@ export default function DesktopLoginScreen() {
           await setUserId(result.user.id);
         }
 
-        // Automatically navigate to Home screen (like WhatsApp)
+        // Automatically navigate to Conversations screen (like WhatsApp)
         // Small delay (500ms) to show "Authorized! Completing login..." message briefly
         setTimeout(() => {
-          navigation.replace('Home');
+          navigation.replace('Conversations');
         }, 500);
       } else {
         Alert.alert('Error', result.error || 'Failed to complete login');

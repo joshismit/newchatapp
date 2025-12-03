@@ -39,8 +39,8 @@ export default function LoginScreen() {
         await setAuthToken(result.token);
         await setUserId(result.user.id);
 
-        // Navigate to home screen
-        navigation.replace('Home');
+        // Navigate directly to conversations screen (WhatsApp-like flow)
+        navigation.replace('Conversations');
       } else {
         Alert.alert('Login Failed', result.error || 'Invalid credentials');
       }
