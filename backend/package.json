@@ -11,7 +11,8 @@
     "start:dev": "npm run dev",
     "start:prod": "npm run build && npm start",
     "check-db": "node scripts/check-database.js",
-    "create-test-data": "npm run build && node scripts/create-test-data.js"
+    "create-test-data": "npm run build && node scripts/create-test-data.js",
+    "create-random-users": "node scripts/create-random-users.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.490.0",
