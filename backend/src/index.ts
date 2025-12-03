@@ -17,11 +17,14 @@ const MONGO_URI = getMongoURI();
 
 // Middleware
 // CORS configuration - allow all origins in development, specific origins in production
+// For mobile apps (React Native/Expo), CORS doesn't apply, but we still need to allow requests
 const corsOptions = {
   origin: process.env.CORS_ORIGIN 
-    ? process.env.CORS_ORIGIN.split(',').map((origin: string) => origin.trim())
+    ? process.env.CORS_ORIGIN === '*' 
+      ? true // Allow all origins if explicitly set to *
+      : process.env.CORS_ORIGIN.split(',').map((origin: string) => origin.trim())
     : process.env.NODE_ENV === 'production' 
-      ? false // Deny all in production if CORS_ORIGIN not set
+      ? true // Allow all origins in production if CORS_ORIGIN not set (for mobile apps)
       : true, // Allow all in development
   credentials: true,
   optionsSuccessStatus: 200,
