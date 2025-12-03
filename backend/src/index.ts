@@ -10,12 +10,23 @@ import { getMongoURI } from './utils/dbConfig';
 dotenv.config();
 
 const app: Express = express();
+// Render provides PORT via environment variable
 const PORT = process.env.PORT || 3000;
 // MongoDB connection - uses MONGO_URI from environment variables
 const MONGO_URI = getMongoURI();
 
 // Middleware
-app.use(cors());
+// CORS configuration - allow all origins in development, specific origins in production
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN 
+    ? process.env.CORS_ORIGIN.split(',').map((origin: string) => origin.trim())
+    : process.env.NODE_ENV === 'production' 
+      ? false // Deny all in production if CORS_ORIGIN not set
+      : true, // Allow all in development
+  credentials: true,
+  optionsSuccessStatus: 200,
+};
+app.use(cors(corsOptions));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -66,11 +77,16 @@ mongoose
         console.warn('⚠️  Could not list collections:', err.message);
       });
     
-    // Start server - listen on all interfaces (0.0.0.0) to allow connections from emulators and other devices
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-      console.log(`🌐 Server accessible from network on port ${PORT}`);
-      console.log(`📱 For Android emulator, use: http://10.0.2.2:${PORT}`);
+    // Start server
+    // Render automatically provides PORT via environment variable
+    // Listen on all interfaces (0.0.0.0) for Render deployment
+    const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '0.0.0.0';
+    app.listen(PORT, host, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`🌐 Server accessible from network on port ${PORT}`);
+        console.log(`📱 For Android emulator, use: http://10.0.2.2:${PORT}`);
+      }
     });
   })
   .catch((error) => {
