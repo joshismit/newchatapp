@@ -12,6 +12,15 @@ npm run create-random-users
 node scripts/create-random-users.js
 ```
 
+## Database Configuration
+
+**Important:** This script will create users in the database specified by your environment variables:
+
+1. Set `MONGO_DB_NAME=newchattapp` in your `.env` file, OR
+2. Ensure your `MONGO_URI` includes the database name `newchattapp`
+
+The script will automatically use the database name "newchattapp" if `MONGO_DB_NAME` is not set, and will replace any existing database name in `MONGO_URI` to ensure users are created in the correct database.
+
 ## What it does
 
 - Creates 20 random users with different names and phone numbers

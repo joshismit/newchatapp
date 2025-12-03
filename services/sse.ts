@@ -1,27 +1,43 @@
-// @ts-ignore - eventsource-polyfill doesn't have perfect TypeScript support
-import EventSourcePolyfill from 'eventsource-polyfill';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-// Handle different export formats for EventSourcePolyfill
+// Handle EventSource based on platform
 let EventSource: any;
-try {
-  // Try default export first
-  EventSource = EventSourcePolyfill?.default || EventSourcePolyfill;
-  // If still undefined, try require as fallback
-  if (!EventSource || typeof EventSource !== 'function') {
-    const polyfillModule = require('eventsource-polyfill');
-    EventSource = polyfillModule?.default || polyfillModule;
-  }
-  
-  // Final check - if still not a function, set to null
-  if (!EventSource || typeof EventSource !== 'function') {
-    console.warn('EventSourcePolyfill not properly loaded. SSE features will be disabled.');
+if (Platform.OS === 'web') {
+  // On web, use native EventSource API
+  if (typeof window !== 'undefined' && window.EventSource) {
+    EventSource = window.EventSource;
+    console.log('Using native EventSource API for web platform');
+  } else {
+    console.warn('Native EventSource not available on web. SSE features will be disabled.');
     EventSource = null;
   }
-} catch (e) {
-  console.error('Failed to import EventSourcePolyfill:', e);
-  EventSource = null;
+} else {
+  // On native platforms (iOS/Android), use polyfill
+  try {
+    // @ts-ignore - eventsource-polyfill doesn't have perfect TypeScript support
+    const EventSourcePolyfill = require('eventsource-polyfill');
+    
+    // Try default export first
+    EventSource = EventSourcePolyfill?.default || EventSourcePolyfill;
+    
+    // If still undefined, try require as fallback
+    if (!EventSource || typeof EventSource !== 'function') {
+      const polyfillModule = require('eventsource-polyfill');
+      EventSource = polyfillModule?.default || polyfillModule;
+    }
+    
+    // Final check - if still not a function, set to null
+    if (!EventSource || typeof EventSource !== 'function') {
+      console.warn('EventSourcePolyfill not properly loaded. SSE features will be disabled.');
+      EventSource = null;
+    } else {
+      console.log('Using EventSourcePolyfill for native platform');
+    }
+  } catch (e) {
+    console.error('Failed to import EventSourcePolyfill:', e);
+    EventSource = null;
+  }
 }
 
 // Determine API URL based on platform (same logic as api.ts)
@@ -104,7 +120,10 @@ class SSEService {
 
     // Check if EventSource is available
     if (!EventSource || typeof EventSource !== 'function') {
-      console.error('EventSourcePolyfill is not available. SSE connection disabled.');
+      const platformMsg = Platform.OS === 'web' 
+        ? 'Native EventSource is not available. SSE connection disabled.'
+        : 'EventSourcePolyfill is not available. SSE connection disabled.';
+      console.error(platformMsg);
       this.isConnecting = false;
       return;
     }
@@ -114,16 +133,22 @@ class SSEService {
       const url = `${API_BASE_URL}/sse/connect?token=${encodeURIComponent(this.jwtToken)}`;
       console.log('Connecting to SSE:', url.replace(/token=[^&]+/, 'token=***'));
       
-      const headers: Record<string, string> = {};
-      if (this.lastEventId) {
-        headers['Last-Event-ID'] = this.lastEventId;
+      // On web, native EventSource doesn't support headers in constructor
+      // On native, EventSourcePolyfill supports headers
+      if (Platform.OS === 'web') {
+        // Use native EventSource (no headers support in constructor)
+        this.eventSource = new EventSource(url);
+      } else {
+        // Use polyfill with headers support
+        const headers: Record<string, string> = {};
+        if (this.lastEventId) {
+          headers['Last-Event-ID'] = this.lastEventId;
+        }
+        this.eventSource = new EventSource(url, {
+          headers,
+          withCredentials: false,
+        });
       }
-
-      // Create EventSource with polyfill
-      this.eventSource = new EventSource(url, {
-        headers,
-        withCredentials: false,
-      });
 
       // Handle connection open
       this.eventSource.onopen = () => {

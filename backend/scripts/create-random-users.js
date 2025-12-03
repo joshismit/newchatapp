@@ -21,7 +21,33 @@ try {
 }
 
 // Get MongoDB URI from environment variables
-const finalURI = getMongoURI();
+let finalURI = getMongoURI();
+
+// Ensure database name is set to "newchattapp"
+const targetDbName = process.env.MONGO_DB_NAME || 'newchattapp';
+
+// Parse and reconstruct URI to ensure correct database name
+// Extract the base URI (before database name)
+const uriMatch = finalURI.match(/^(mongodb\+?srv?:\/\/[^\/]+)(\/[^\/\?]*)?(\?.*)?$/);
+if (uriMatch) {
+  const baseUri = uriMatch[1]; // mongodb://host or mongodb+srv://host
+  const queryString = uriMatch[3] || ''; // Query parameters
+  
+  // Reconstruct URI with target database name
+  finalURI = `${baseUri}/${targetDbName}${queryString ? queryString : '?retryWrites=true&w=majority'}`;
+} else {
+  // Fallback: try simple replacement
+  if (!finalURI.includes(`/${targetDbName}`)) {
+    // Replace any existing database name
+    finalURI = finalURI.replace(/\/[^\/\?]+(\?|$)/, `/${targetDbName}$1`);
+    // If still no database name, add it
+    if (!finalURI.match(/\/[^\/\?]+(\?|$)/)) {
+      const separator = finalURI.endsWith('/') ? '' : '/';
+      const querySeparator = finalURI.includes('?') ? '&' : '?';
+      finalURI = `${finalURI}${separator}${targetDbName}${querySeparator}retryWrites=true&w=majority`;
+    }
+  }
+}
 
 // Random user data
 const randomUsers = [
@@ -54,6 +80,7 @@ async function createRandomUsers() {
   try {
     console.log('🔍 Connecting to MongoDB...');
     console.log(`📍 URI: ${finalURI.replace(/:[^:@]+@/, ':****@')}`); // Hide password
+    console.log(`🎯 Target Database: ${targetDbName}`);
 
     await mongoose.connect(finalURI, {
       maxPoolSize: 10,
@@ -64,6 +91,13 @@ async function createRandomUsers() {
     const dbName = mongoose.connection.db?.databaseName || 'unknown';
     console.log(`✅ Connected to MongoDB`);
     console.log(`📦 Database Name: ${dbName}`);
+    
+    if (dbName !== targetDbName && dbName !== 'unknown') {
+      console.log(`⚠️  WARNING: Connected to database "${dbName}" but expected "${targetDbName}"`);
+      console.log(`   Please check your MONGO_URI and MONGO_DB_NAME environment variables`);
+    } else if (dbName === targetDbName) {
+      console.log(`✅ Successfully connected to target database: ${targetDbName}`);
+    }
     console.log(
       `🔗 Connection State: ${
         mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
