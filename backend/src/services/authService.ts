@@ -186,6 +186,42 @@ export class AuthService {
       user, // Return user object for frontend
     };
   }
+
+  /**
+   * Search for users by phone number
+   */
+  async searchUsersByPhone(phone: string, excludeUserId?: string): Promise<{ success: boolean; users?: Array<{ _id: mongoose.Types.ObjectId; name: string; phone: string; avatarUrl?: string | null }>; error?: string }> {
+    try {
+      const trimmedPhone = phone.trim();
+      
+      if (!trimmedPhone || trimmedPhone.length < 3) {
+        return { success: false, error: 'Please enter at least 3 characters' };
+      }
+
+      // Search for users by phone (partial match)
+      const query: any = {
+        phone: { $regex: trimmedPhone, $options: 'i' }
+      };
+
+      // Exclude current user if provided
+      if (excludeUserId) {
+        query._id = { $ne: new mongoose.Types.ObjectId(excludeUserId) };
+      }
+
+      const users = await User.find(query)
+        .select('name phone avatarUrl')
+        .limit(10)
+        .lean();
+
+      return {
+        success: true,
+        users: users as Array<{ _id: mongoose.Types.ObjectId; name: string; phone: string; avatarUrl?: string | null }>,
+      };
+    } catch (error) {
+      console.error('Error searching users:', error);
+      return { success: false, error: 'Failed to search users' };
+    }
+  }
 }
 
 export const authService = new AuthService();

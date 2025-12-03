@@ -35,4 +35,11 @@ router.get('/qr-status', authController.getQRStatus);
  */
 router.post('/qr-confirm', authController.confirmQRChallenge);
 
+/**
+ * GET /auth/users/search?phone=...
+ * Search for users by phone number
+ * Requires authentication
+ */
+router.get('/users/search', authenticate, authController.searchUsers);
+
 export default router;

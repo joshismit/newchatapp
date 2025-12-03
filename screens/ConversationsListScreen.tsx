@@ -186,6 +186,13 @@ export default function ConversationsListScreen() {
   };
 
   /**
+   * Navigate to new conversation screen
+   */
+  const navigateToNewConversation = () => {
+    navigation.navigate('NewConversation' as any);
+  };
+
+  /**
    * Render conversation item
    */
   const renderConversation = useCallback(
@@ -255,6 +262,15 @@ export default function ConversationsListScreen() {
         initialNumToRender={15}
         windowSize={10}
       />
+
+      {/* Floating Action Button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={navigateToNewConversation}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="chatbubble" size={24} color="#fff" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -310,6 +326,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     marginTop: 8,
+  },
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#25D366',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.27,
+    shadowRadius: 4.65,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 3,
+        },
+        shadowOpacity: 0.27,
+        shadowRadius: 4.65,
+      },
+    }),
   },
 });
 

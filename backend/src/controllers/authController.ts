@@ -169,6 +169,46 @@ export class AuthController {
       res.status(500).json({ error: 'Failed to confirm QR challenge' });
     }
   };
+
+  /**
+   * GET /auth/users/search?phone=...
+   * Search for users by phone number
+   * Requires authentication
+   */
+  searchUsers = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const { phone } = req.query;
+      const userId = req.user?.userId;
+
+      if (!phone || typeof phone !== 'string') {
+        res.status(400).json({ error: 'Phone query parameter is required' });
+        return;
+      }
+
+      const result = await authService.searchUsersByPhone(phone, userId);
+
+      if (!result.success) {
+        res.status(400).json({ error: result.error });
+        return;
+      }
+
+      // Format users (exclude password)
+      const formattedUsers = result.users!.map((user) => ({
+        id: user._id.toString(),
+        name: user.name,
+        phone: user.phone,
+        avatarUrl: user.avatarUrl || null,
+      }));
+
+      res.json({
+        success: true,
+        users: formattedUsers,
+      });
+    } catch (error) {
+      console.error('Error searching users:', error);
+      res.status(500).json({ error: 'Failed to search users' });
+    }
+  };
 }
 
 export const authController = new AuthController();

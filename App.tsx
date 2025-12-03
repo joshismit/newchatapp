@@ -12,6 +12,7 @@ import HomeScreen from './screens/HomeScreen';
 import ConversationsListScreen from './screens/ConversationsListScreen';
 import ArchivedScreen from './screens/ArchivedScreen';
 import ChatScreen from './screens/ChatScreen';
+import NewConversationScreen from './screens/NewConversationScreen';
 
 // Import screens directly - React Navigation handles platform compatibility
 import QRScannerScreen from './screens/QRScannerScreen';
@@ -41,6 +42,7 @@ export type RootStackParamList = {
   Home: undefined;
   Conversations: undefined;
   Archived: undefined;
+  NewConversation: undefined;
   Chat: {
     conversationId: string;
     conversationTitle?: string;
@@ -201,6 +203,14 @@ export default function App() {
             component={ArchivedScreen}
             options={{
               headerShown: false,
+            }}
+          />
+          <Stack.Screen 
+            name="NewConversation" 
+            component={NewConversationScreen}
+            options={{
+              headerShown: false,
+              presentation: 'modal',
             }}
           />
           <Stack.Screen 

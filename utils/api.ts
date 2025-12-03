@@ -456,5 +456,77 @@ export const archiveConversation = async (
   }
 };
 
+export interface User {
+  id: string;
+  name: string;
+  phone: string;
+  avatarUrl?: string | null;
+}
+
+export interface SearchUsersResponse {
+  success: boolean;
+  users?: User[];
+  error?: string;
+}
+
+/**
+ * Search for users by phone number
+ */
+export const searchUsers = async (phone: string): Promise<SearchUsersResponse> => {
+  try {
+    const response = await api.get<SearchUsersResponse>('/auth/users/search', {
+      params: { phone },
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.response) {
+      return {
+        success: false,
+        error: error.response.data?.error || 'Failed to search users',
+      };
+    }
+    return {
+      success: false,
+      error: error.message || 'Network error',
+    };
+  }
+};
+
+export interface CreateConversationRequest {
+  type?: 'private' | 'group';
+  title?: string;
+  memberIds: string[];
+}
+
+export interface CreateConversationResponse {
+  success: boolean;
+  conversation?: Conversation;
+  alreadyExists?: boolean;
+  error?: string;
+}
+
+/**
+ * Create a new conversation
+ */
+export const createConversation = async (
+  data: CreateConversationRequest
+): Promise<CreateConversationResponse> => {
+  try {
+    const response = await api.post<CreateConversationResponse>('/conversations', data);
+    return response.data;
+  } catch (error: any) {
+    if (error.response) {
+      return {
+        success: false,
+        error: error.response.data?.error || 'Failed to create conversation',
+      };
+    }
+    return {
+      success: false,
+      error: error.message || 'Network error',
+    };
+  }
+};
+
 export default api;
 
