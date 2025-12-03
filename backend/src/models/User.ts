@@ -4,6 +4,7 @@ export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
   name: string;
   phone: string;
+  password?: string;
   avatarUrl?: string;
   createdAt: Date;
 }
@@ -21,6 +22,11 @@ const UserSchema = new Schema<IUser>(
       unique: true,
       trim: true,
       index: true,
+    },
+    password: {
+      type: String,
+      required: false,
+      trim: true,
     },
     avatarUrl: {
       type: String,

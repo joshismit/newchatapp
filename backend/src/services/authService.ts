@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcrypt';
 import { QRChallenge, IQRChallenge } from '../models/QRChallenge';
 import { User, IUser } from '../models/User';
 import { generateQRToken } from '../utils/tokenGenerator';
@@ -20,6 +21,48 @@ export interface QRStatusResponse {
 }
 
 export class AuthService {
+  /**
+   * Login with phone and password
+   */
+  async login(phone: string, password: string): Promise<{ success: boolean; user?: IUser; error?: string }> {
+    try {
+      const trimmedPhone = phone.trim();
+      console.log('Login attempt:', { phone: trimmedPhone, passwordLength: password.length });
+      
+      // Find user by phone
+      const user = await User.findOne({ phone: trimmedPhone });
+      
+      if (!user) {
+        console.log('User not found for phone:', trimmedPhone);
+        // Debug: Check what users exist
+        const allUsers = await User.find({}).select('phone name').limit(5);
+        console.log('Available users:', allUsers.map(u => ({ phone: u.phone, name: u.name })));
+        return { success: false, error: 'Invalid phone number or password' };
+      }
+      
+      console.log('User found:', { id: user._id, phone: user.phone, name: user.name, hasPassword: !!user.password });
+
+      // Check if user has a password
+      if (!user.password) {
+        return { success: false, error: 'User account not set up. Please contact support.' };
+      }
+
+      // Verify password
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      console.log('Password verification:', isPasswordValid);
+      
+      if (!isPasswordValid) {
+        return { success: false, error: 'Invalid phone number or password' };
+      }
+
+      // Return user (password will be excluded by toObject)
+      return { success: true, user };
+    } catch (error) {
+      console.error('Login error:', error);
+      return { success: false, error: 'Login failed. Please try again.' };
+    }
+  }
+
   /**
    * Create a new QR challenge
    */
@@ -111,7 +154,7 @@ export class AuthService {
    */
   async confirmQRChallenge(
     challengeId: string
-  ): Promise<{ success: boolean; token?: string; error?: string }> {
+  ): Promise<{ success: boolean; token?: string; user?: IUser; error?: string }> {
     const challenge = await QRChallenge.findById(challengeId);
 
     if (!challenge) {
@@ -128,12 +171,19 @@ export class AuthService {
       return { success: false, error: 'Challenge not authorized' };
     }
 
+    // Get user information
+    const user = await User.findById(challenge.authorizedUserId);
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
     // Delete challenge (one-time use)
     await QRChallenge.findByIdAndDelete(challengeId);
 
     return {
       success: true,
       token: challenge.authorizedUserId.toString(), // Return user ID, JWT will be created in controller
+      user, // Return user object for frontend
     };
   }
 }

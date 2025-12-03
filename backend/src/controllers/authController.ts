@@ -1,8 +1,52 @@
 import { Request, Response } from 'express';
 import { authService } from '../services/authService';
 import { signToken } from '../utils/jwt';
+import { AuthRequest } from '../middleware/auth';
 
 export class AuthController {
+  /**
+   * POST /auth/login
+   * Login with phone and password
+   */
+  login = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { phone, password } = req.body;
+
+      if (!phone || !password) {
+        res.status(400).json({ error: 'Phone and password are required' });
+        return;
+      }
+
+      const result = await authService.login(phone, password);
+
+      if (!result.success) {
+        res.status(401).json({ error: result.error });
+        return;
+      }
+
+      // Create JWT token
+      const jwtToken = signToken({ userId: result.user!._id.toString() });
+
+      // Return user info (without password)
+      const userObj = result.user!.toObject();
+      delete userObj.password;
+
+      res.json({
+        success: true,
+        token: jwtToken,
+        user: {
+          id: userObj._id.toString(),
+          name: userObj.name,
+          phone: userObj.phone,
+          avatarUrl: userObj.avatarUrl || null,
+        },
+      });
+    } catch (error) {
+      console.error('Error during login:', error);
+      res.status(500).json({ error: 'Failed to login' });
+    }
+  };
+
   /**
    * GET /auth/qr-challenge
    * Create a new QR challenge
@@ -27,8 +71,9 @@ export class AuthController {
    * POST /auth/qr-scan
    * Mobile app scans QR code and authorizes
    * Token can come from query params (QR URL) or request body
+   * Requires authentication middleware (JWT token)
    */
-  scanQRCode = async (req: Request, res: Response): Promise<void> => {
+  scanQRCode = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       // Token can be in query params (from QR URL) or body
       const token = (req.query.token as string) || req.body.token;
@@ -38,13 +83,11 @@ export class AuthController {
         return;
       }
 
-      // Get userId from authenticated user (assuming middleware sets req.user)
-      // For now, we'll expect it in the request body
-      // In production, use authentication middleware to set req.user
-      const userId = (req as any).user?.id || req.body.userId;
+      // Get userId from authenticated user (set by authenticate middleware)
+      const userId = req.user?.userId;
 
       if (!userId) {
-        res.status(401).json({ error: 'User authentication required. Provide userId in request body.' });
+        res.status(401).json({ error: 'User authentication required' });
         return;
       }
 
@@ -107,11 +150,18 @@ export class AuthController {
       // Create JWT token
       const jwtToken = signToken({ userId: result.token! });
 
+      // Return user info (without password)
+      const userObj = result.user!.toObject();
+      delete userObj.password;
+
       res.json({
         success: true,
         token: jwtToken,
         user: {
-          id: result.token,
+          id: userObj._id.toString(),
+          name: userObj.name,
+          phone: userObj.phone,
+          avatarUrl: userObj.avatarUrl || null,
         },
       });
     } catch (error) {

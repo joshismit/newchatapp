@@ -7,13 +7,15 @@
 
 const mongoose = require('mongoose');
 require('dotenv').config();
+const { getMongoURI } = require('./dbConfig');
 
 // Import models
 const User = require('../dist/models/User').User || require('../src/models/User').User;
 const Conversation = require('../dist/models/Conversation').Conversation || require('../src/models/Conversation').Conversation;
 const Message = require('../dist/models/Message').Message || require('../src/models/Message').Message;
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://smitjoshi709_db_user:RHLhRJ9PIBaP03yJ@cluster0.qampcyo.mongodb.net/chatdb?retryWrites=true&w=majority';
+// Get MongoDB URI from environment variables
+const MONGO_URI = getMongoURI();
 
 async function createTestData() {
   try {

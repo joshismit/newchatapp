@@ -6,7 +6,7 @@ Run this script in MongoDB Atlas or via `mongosh`:
 
 ```javascript
 // Connect to your database
-use chatdb;
+use newchatapp;
 
 // Indexes for Messages collection
 db.messages.createIndex({ conversationId: 1, createdAt: -1 });

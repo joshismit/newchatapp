@@ -5,13 +5,14 @@ import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 // SSE routes
 import sseRoutes from './routes/sseRoutes';
+import { getMongoURI } from './utils/dbConfig';
 
 dotenv.config();
 
 const app: Express = express();
 const PORT = process.env.PORT || 3000;
-// MongoDB connection - database name should be specified
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://smitjoshi709_db_user:RHLhRJ9PIBaP03yJ@cluster0.qampcyo.mongodb.net/chatdb?retryWrites=true&w=majority';
+// MongoDB connection - uses MONGO_URI from environment variables
+const MONGO_URI = getMongoURI();
 
 // Middleware
 app.use(cors());
@@ -65,9 +66,11 @@ mongoose
         console.warn('⚠️  Could not list collections:', err.message);
       });
     
-    // Start server
-    app.listen(PORT, () => {
+    // Start server - listen on all interfaces (0.0.0.0) to allow connections from emulators and other devices
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
+      console.log(`🌐 Server accessible from network on port ${PORT}`);
+      console.log(`📱 For Android emulator, use: http://10.0.2.2:${PORT}`);
     });
   })
   .catch((error) => {

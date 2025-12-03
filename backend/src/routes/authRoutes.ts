@@ -1,7 +1,14 @@
 import { Router } from 'express';
 import { authController } from '../controllers/authController';
+import { authenticate } from '../middleware/auth';
 
 const router = Router();
+
+/**
+ * POST /auth/login
+ * Login with phone and password
+ */
+router.post('/login', authController.login);
 
 /**
  * GET /auth/qr-challenge
@@ -12,8 +19,9 @@ router.get('/qr-challenge', authController.createQRChallenge);
 /**
  * POST /auth/qr-scan
  * Mobile app scans QR code and authorizes with user ID
+ * Requires authentication (JWT token)
  */
-router.post('/qr-scan', authController.scanQRCode);
+router.post('/qr-scan', authenticate, authController.scanQRCode);
 
 /**
  * GET /auth/qr-status?challengeId=...

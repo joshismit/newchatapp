@@ -1,8 +1,38 @@
 // @ts-ignore - eventsource-polyfill doesn't have perfect TypeScript support
 import EventSourcePolyfill from 'eventsource-polyfill';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+// Handle different export formats for EventSourcePolyfill
+let EventSource: any;
+try {
+  // Try default export first
+  EventSource = EventSourcePolyfill?.default || EventSourcePolyfill;
+  // If still undefined, try require as fallback
+  if (!EventSource || typeof EventSource !== 'function') {
+    const polyfillModule = require('eventsource-polyfill');
+    EventSource = polyfillModule?.default || polyfillModule;
+  }
+  
+  // Final check - if still not a function, set to null
+  if (!EventSource || typeof EventSource !== 'function') {
+    console.warn('EventSourcePolyfill not properly loaded. SSE features will be disabled.');
+    EventSource = null;
+  }
+} catch (e) {
+  console.error('Failed to import EventSourcePolyfill:', e);
+  EventSource = null;
+}
+
+// Determine API URL based on platform (same logic as api.ts)
+const getDefaultAPIUrl = () => {
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:3000';
+  }
+  return 'http://localhost:3000';
+};
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || getDefaultAPIUrl();
 const SSE_EVENTS_STORAGE_KEY = 'sse_events';
 const LAST_EVENT_ID_KEY = 'sse_last_event_id';
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -29,7 +59,7 @@ export interface SSEEvent {
 export type SSEEventHandler = (event: SSEEvent) => void;
 
 class SSEService {
-  private eventSource: EventSourcePolyfill | null = null;
+  private eventSource: any = null; // EventSourcePolyfill instance
   private reconnectAttempts = 0;
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private isConnecting = false;
@@ -72,9 +102,17 @@ class SSEService {
       return;
     }
 
+    // Check if EventSource is available
+    if (!EventSource || typeof EventSource !== 'function') {
+      console.error('EventSourcePolyfill is not available. SSE connection disabled.');
+      this.isConnecting = false;
+      return;
+    }
+
     try {
       // Build URL with token and last-event-id
       const url = `${API_BASE_URL}/sse/connect?token=${encodeURIComponent(this.jwtToken)}`;
+      console.log('Connecting to SSE:', url.replace(/token=[^&]+/, 'token=***'));
       
       const headers: Record<string, string> = {};
       if (this.lastEventId) {
@@ -82,7 +120,7 @@ class SSEService {
       }
 
       // Create EventSource with polyfill
-      this.eventSource = new EventSourcePolyfill(url, {
+      this.eventSource = new EventSource(url, {
         headers,
         withCredentials: false,
       });

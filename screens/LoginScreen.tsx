@@ -7,11 +7,14 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
+import { login, setAuthToken, setUserId } from '../utils/api';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -19,10 +22,35 @@ export default function LoginScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [phoneNumber, setPhoneNumber] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
 
-  const handleLogin = () => {
-    // TODO: Implement login logic
-    console.log('Login pressed', { phoneNumber, password });
+  const handleLogin = async () => {
+    if (!phoneNumber.trim() || !password.trim()) {
+      Alert.alert('Error', 'Please enter both phone number and password');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await login(phoneNumber.trim(), password);
+
+      if (result.success && result.token && result.user) {
+        // Store token and user ID
+        await setAuthToken(result.token);
+        await setUserId(result.user.id);
+
+        // Navigate to home screen
+        navigation.replace('Home');
+      } else {
+        Alert.alert('Login Failed', result.error || 'Invalid credentials');
+      }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Network error. Please check your connection and ensure the backend server is running.';
+      Alert.alert('Login Error', errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleScanQR = () => {
@@ -84,8 +112,16 @@ export default function LoginScreen() {
           />
         </View>
 
-        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-          <Text style={styles.loginButtonText}>Login</Text>
+        <TouchableOpacity 
+          style={[styles.loginButton, loading && styles.loginButtonDisabled]} 
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.loginButtonText}>Login</Text>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.forgotPassword}>
@@ -164,6 +200,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 16,
+  },
+  loginButtonDisabled: {
+    opacity: 0.6,
   },
   loginButtonText: {
     color: '#fff',

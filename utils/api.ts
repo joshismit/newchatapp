@@ -1,14 +1,32 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+// Determine API URL based on platform
+// For Android emulator, use 10.0.2.2 instead of localhost
+// For iOS simulator, localhost works
+// For physical devices, use your computer's IP address
+const getDefaultAPIUrl = () => {
+  if (Platform.OS === 'android') {
+    // Android emulator uses 10.0.2.2 to access host machine's localhost
+    return 'http://10.0.2.2:3000';
+  }
+  // iOS simulator and web can use localhost
+  return 'http://localhost:3000';
+};
 
-// Create axios instance
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || getDefaultAPIUrl();
+
+// Log API URL for debugging
+console.log('API Base URL:', API_BASE_URL);
+
+// Create axios instance with timeout
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000, // 10 second timeout
 });
 
 // Add auth token to requests
@@ -24,6 +42,23 @@ api.interceptors.request.use(
     return Promise.reject(error);
   }
 );
+
+export interface LoginRequest {
+  phone: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  success: boolean;
+  token?: string;
+  user?: {
+    id: string;
+    name: string;
+    phone: string;
+    avatarUrl?: string | null;
+  };
+  error?: string;
+}
 
 export interface QRScanRequest {
   token: string;
@@ -60,16 +95,57 @@ export interface QRConfirmResponse {
 }
 
 /**
+ * Login with phone and password
+ */
+export const login = async (phone: string, password: string): Promise<LoginResponse> => {
+  try {
+    console.log('Attempting login to:', API_BASE_URL);
+    const response = await api.post<LoginResponse>('/auth/login', {
+      phone,
+      password,
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('Login API error:', {
+      message: error.message,
+      code: error.code,
+      response: error.response?.data,
+      url: `${API_BASE_URL}/auth/login`,
+    });
+    
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.message?.includes('Network Error')) {
+      return {
+        success: false,
+        error: `Cannot connect to server at ${API_BASE_URL}. Please ensure the backend is running and the API URL is correct.`,
+      };
+    }
+    
+    if (error.response) {
+      return {
+        success: false,
+        error: error.response.data?.error || 'Failed to login',
+      };
+    }
+    return {
+      success: false,
+      error: error.message || 'Network error. Please check your connection.',
+    };
+  }
+};
+
+/**
  * Scan QR code and authorize desktop login
+ * Note: userId is now extracted from JWT token (authentication middleware)
+ * The userId parameter is kept for backward compatibility but not sent to backend
  */
 export const scanQRCode = async (
   token: string,
-  userId: string
+  userId?: string // Optional, kept for compatibility but not used
 ): Promise<QRScanResponse> => {
   try {
+    // Backend now gets userId from JWT token via authentication middleware
     const response = await api.post<QRScanResponse>('/auth/qr-scan', {
       token,
-      userId,
     });
     return response.data;
   } catch (error: any) {

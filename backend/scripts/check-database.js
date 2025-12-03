@@ -7,20 +7,10 @@
 
 const mongoose = require('mongoose');
 require('dotenv').config();
+const { getMongoURI } = require('./dbConfig');
 
-// Ensure database name is in connection string
-const defaultURI = 'mongodb+srv://smitjoshi709_db_user:RHLhRJ9PIBaP03yJ@cluster0.qampcyo.mongodb.net/chatdb?retryWrites=true&w=majority';
-const MONGO_URI = process.env.MONGO_URI || defaultURI;
-
-// If MONGO_URI doesn't have database name, append it
-let finalURI = MONGO_URI;
-if (!MONGO_URI.includes('/chatdb') && !MONGO_URI.includes('/?') && !MONGO_URI.match(/\/[^\/\?]+(\?|$)/)) {
-  // No database name in URI, append chatdb
-  finalURI = MONGO_URI.endsWith('/') ? `${MONGO_URI}chatdb` : `${MONGO_URI}/chatdb`;
-  if (!finalURI.includes('?')) {
-    finalURI += '?retryWrites=true&w=majority';
-  }
-}
+// Get MongoDB URI from environment variables
+const finalURI = getMongoURI();
 
 async function checkDatabase() {
   try {

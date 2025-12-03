@@ -1,7 +1,7 @@
 // MongoDB initialization script for Docker
 // This creates indexes on first database initialization
 
-db = db.getSiblingDB('chatdb');
+db = db.getSiblingDB('newchatapp');
 
 // Create indexes for Messages collection
 db.messages.createIndex({ conversationId: 1, createdAt: -1 });

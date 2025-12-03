@@ -16,6 +16,7 @@ import {
   checkQRStatus,
   confirmQRChallenge,
   setAuthToken,
+  setUserId,
 } from '../utils/api';
 import type { RootStackParamList } from '../App';
 
@@ -146,20 +147,18 @@ export default function DesktopLoginScreen() {
     try {
       const result = await confirmQRChallenge(challengeId);
 
-      if (result.success && result.token) {
-        // Save JWT token
+      if (result.success && result.token && result.user) {
+        // Save JWT token and user ID
         await setAuthToken(result.token);
+        if (result.user.id) {
+          await setUserId(result.user.id);
+        }
 
-        // Show success toast
-        Alert.alert('Success', 'You are logged in.', [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Navigate to Home screen
-              navigation.replace('Home');
-            },
-          },
-        ]);
+        // Automatically navigate to Home screen (like WhatsApp)
+        // Small delay (500ms) to show "Authorized! Completing login..." message briefly
+        setTimeout(() => {
+          navigation.replace('Home');
+        }, 500);
       } else {
         Alert.alert('Error', result.error || 'Failed to complete login');
         // Retry QR challenge
