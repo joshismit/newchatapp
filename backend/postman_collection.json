@@ -24,8 +24,51 @@
 			]
 		},
 		{
-			"name": "Authentication - QR Login",
+			"name": "Authentication",
 			"item": [
+				{
+					"name": "Login (Mobile)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.success && jsonData.token) {",
+									"        pm.environment.set('jwt_token', jsonData.token);",
+									"        pm.environment.set('testUserId', jsonData.user.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"phone\": \"9033868859\",\n  \"password\": \"test1234\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Login with phone number and password (Mobile authentication)"
+					},
+					"response": []
+				},
+				{
+					"name": "QR Login Flow",
+					"item": [
 				{
 					"name": "Create QR Challenge",
 					"event": [
@@ -75,20 +118,24 @@
 						"method": "POST",
 						"header": [
 							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
 								"key": "Content-Type",
 								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"token\": \"{{qrPayload}}\",\n  \"userId\": \"{{testUserId}}\"\n}"
+							"raw": "{\n  \"token\": \"{{qrPayload}}\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/auth/qr-scan",
 							"host": ["{{base_url}}"],
 							"path": ["auth", "qr-scan"]
 						},
-						"description": "Mobile app scans QR code and authorizes with user ID"
+						"description": "Mobile app scans QR code and authorizes (userId extracted from JWT token)"
 					},
 					"response": []
 				},
@@ -121,7 +168,12 @@
 								"exec": [
 									"if (pm.response.code === 200) {",
 									"    const jsonData = pm.response.json();",
-									"    pm.environment.set('jwt_token', jsonData.token);",
+									"    if (jsonData.success && jsonData.token) {",
+									"        pm.environment.set('jwt_token', jsonData.token);",
+									"        if (jsonData.user && jsonData.user.id) {",
+									"            pm.environment.set('testUserId', jsonData.user.id);",
+									"        }",
+									"    }",
 									"}"
 								],
 								"type": "text/javascript"
