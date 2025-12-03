@@ -4,6 +4,10 @@ import { customAlphabet } from 'nanoid';
 import * as fs from 'fs';
 import * as path from 'path';
 import multer from 'multer';
+import '../types/express';
+
+// Use Express.Multer.File type (non-nullable)
+type MulterFile = NonNullable<Express.Request['file']>;
 
 // Generate random token for file names
 const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
@@ -40,7 +44,7 @@ export interface UploadResult {
  * Upload file to S3 and return presigned URL
  */
 export const uploadToS3 = async (
-  file: Express.Multer.File,
+  file: MulterFile,
   folder: string = 'attachments'
 ): Promise<UploadResult> => {
   if (!s3Client) {
@@ -86,7 +90,7 @@ export const uploadToS3 = async (
  * Upload file to local storage (for development)
  */
 export const uploadToLocal = async (
-  file: Express.Multer.File,
+  file: MulterFile,
   folder: string = 'attachments'
 ): Promise<UploadResult> => {
   const uploadsDir = path.join(process.cwd(), 'uploads', folder);
@@ -120,7 +124,7 @@ export const uploadToLocal = async (
  * Main upload function - uses S3 if configured, otherwise local storage
  */
 export const uploadFile = async (
-  file: Express.Multer.File,
+  file: MulterFile,
   folder: string = 'attachments'
 ): Promise<UploadResult> => {
   if (USE_S3 && s3Client) {

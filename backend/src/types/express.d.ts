@@ -8,8 +8,6 @@ declare global {
         userId: string;
         phone?: string;
       };
-      file?: Multer.File;
-      files?: Multer.File[] | { [fieldname: string]: Multer.File[] };
     }
   }
 }

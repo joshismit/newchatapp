@@ -1,13 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, extractTokenFromHeader } from '../utils/jwt';
 
+// Import types to ensure they're available
+import '../types/express';
+
 export interface AuthRequest extends Request {
   user?: {
     userId: string;
     phone?: string;
   };
-  file?: Express.Multer.File;
-  files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
 }
 
 export const authenticate = async (
