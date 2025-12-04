@@ -165,6 +165,26 @@ npx tsc --noEmit
 
 ## Production Deployment
 
+### Deploy to Render
+
+**See [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md) for complete deployment guide.**
+
+**Quick Steps:**
+1. Push code to GitHub/GitLab
+2. Create new Web Service on Render
+3. Connect repository
+4. Set Root Directory: `backend`
+5. Set Build Command: `npm install && npm run build`
+6. Set Start Command: `npm start`
+7. Add environment variables:
+   - `MONGO_URI` - Your MongoDB connection string
+   - `JWT_SECRET` - Generate with: `openssl rand -base64 32`
+   - `NODE_ENV=production`
+   - `CORS_ORIGIN=*`
+8. Deploy!
+
+### Manual Deployment
+
 1. Set `NODE_ENV=production`
 2. Set strong `JWT_SECRET`
 3. Configure MongoDB Atlas connection
