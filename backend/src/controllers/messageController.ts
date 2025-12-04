@@ -78,14 +78,22 @@ export class MessageController {
         }
       }
 
+      // Determine receiverId from conversation members (exclude sender)
+      const receiverIdObj = conversation.members.find(
+        (memberId) => memberId.toString() !== userId
+      ) || conversation.members[0]; // Fallback to first member if only one member
+
       // Create message
       const message = await Message.create({
         conversationId: new mongoose.Types.ObjectId(conversationId),
         senderId: userIdObj,
-        text: text?.trim() || undefined,
+        receiverId: receiverIdObj,
+        content: text?.trim() || (attachments && attachments.length > 0 ? '' : ''),
+        type: attachments && attachments.length > 0 ? 'image' : 'text',
         attachments: attachments || [],
         clientId: clientId || undefined,
         status: MessageStatus.SENT,
+        timestamp: new Date(),
         deliveredTo: [],
         readBy: [],
       });
@@ -105,8 +113,9 @@ export class MessageController {
         conversationId: conversationId,
         senderId: userId,
         sender: populatedMessage?.senderId,
-        text: message.text,
-        attachments: message.attachments,
+        text: message.content,
+        content: message.content,
+        attachments: message.attachments || [],
         clientId: message.clientId,
         status: message.status,
         createdAt: message.createdAt.toISOString(),
@@ -131,15 +140,17 @@ export class MessageController {
         success: true,
         message: {
           id: message._id.toString(),
-          conversationId: message.conversationId.toString(),
+          conversationId: message.conversationId?.toString() || conversationId,
           senderId: message.senderId.toString(),
-          text: message.text,
-          attachments: message.attachments,
+          receiverId: message.receiverId.toString(),
+          text: message.content,
+          content: message.content,
+          attachments: message.attachments || [],
           clientId: message.clientId,
           status: message.status,
           createdAt: message.createdAt.toISOString(),
-          deliveredTo: message.deliveredTo.map((id) => id.toString()),
-          readBy: message.readBy.map((id) => id.toString()),
+          deliveredTo: (message.deliveredTo || []).map((id) => id.toString()),
+          readBy: (message.readBy || []).map((id) => id.toString()),
         },
       });
     } catch (error: any) {
@@ -212,20 +223,22 @@ export class MessageController {
       // Format response
       const formattedMessages = messages.map((msg) => ({
         id: msg._id.toString(),
-        conversationId: msg.conversationId.toString(),
+        conversationId: msg.conversationId?.toString() || '',
         senderId: msg.senderId._id?.toString() || msg.senderId.toString(),
+        receiverId: msg.receiverId?.toString() || '',
         sender: {
           id: msg.senderId._id?.toString() || msg.senderId.toString(),
           name: (msg.senderId as any).name,
           avatarUrl: (msg.senderId as any).avatarUrl,
         },
-        text: msg.text,
+        text: msg.content,
+        content: msg.content,
         attachments: msg.attachments || [],
         clientId: msg.clientId,
         status: msg.status,
         createdAt: msg.createdAt.toISOString(),
-        deliveredTo: msg.deliveredTo.map((id: any) => id.toString()),
-        readBy: msg.readBy.map((id: any) => id.toString()),
+        deliveredTo: (msg.deliveredTo || []).map((id: any) => id.toString()),
+        readBy: (msg.readBy || []).map((id: any) => id.toString()),
       }));
 
       // Determine if there are more messages
@@ -279,7 +292,7 @@ export class MessageController {
       }
 
       // Check if already delivered to this user
-      const alreadyDelivered = message.deliveredTo.some(
+      const alreadyDelivered = (message.deliveredTo || []).some(
         (id) => id.toString() === targetUserId
       );
 
@@ -292,18 +305,25 @@ export class MessageController {
         return;
       }
 
+      // Initialize deliveredTo array if undefined
+      if (!message.deliveredTo) {
+        message.deliveredTo = [];
+      }
+      
       // Add to deliveredTo array
       message.deliveredTo.push(targetUserIdObj);
       
       // Update message status if all recipients have received it
-      const conversation = await Conversation.findById(message.conversationId).select('members');
-      if (conversation) {
-        const recipientCount = conversation.members.filter(
-          (memberId) => memberId.toString() !== message.senderId.toString()
-        ).length;
-        
-        if (message.deliveredTo.length >= recipientCount) {
-          message.status = MessageStatus.DELIVERED;
+      if (message.conversationId) {
+        const conversation = await Conversation.findById(message.conversationId).select('members');
+        if (conversation) {
+          const recipientCount = conversation.members.filter(
+            (memberId) => memberId.toString() !== message.senderId.toString()
+          ).length;
+          
+          if (message.deliveredTo.length >= recipientCount) {
+            message.status = MessageStatus.DELIVERED;
+          }
         }
       }
 
@@ -321,7 +341,7 @@ export class MessageController {
       res.json({
         success: true,
         messageId: id,
-        deliveredTo: message.deliveredTo.map((id) => id.toString()),
+        deliveredTo: (message.deliveredTo || []).map((id) => id.toString()),
         status: message.status,
       });
     } catch (error: any) {
@@ -359,7 +379,7 @@ export class MessageController {
       }
 
       // Check if already read by this user
-      const alreadyRead = message.readBy.some((id) => id.toString() === targetUserId);
+      const alreadyRead = (message.readBy || []).some((id) => id.toString() === targetUserId);
 
       if (alreadyRead) {
         res.json({
@@ -368,6 +388,14 @@ export class MessageController {
           messageId: id,
         });
         return;
+      }
+
+      // Initialize arrays if undefined
+      if (!message.deliveredTo) {
+        message.deliveredTo = [];
+      }
+      if (!message.readBy) {
+        message.readBy = [];
       }
 
       // Ensure user has received the message first (add to deliveredTo if not present)
@@ -382,16 +410,18 @@ export class MessageController {
       message.readBy.push(targetUserIdObj);
 
       // Update message status if all recipients have read it
-      const conversation = await Conversation.findById(message.conversationId).select('members');
-      if (conversation) {
-        const recipientCount = conversation.members.filter(
-          (memberId) => memberId.toString() !== message.senderId.toString()
-        ).length;
+      if (message.conversationId) {
+        const conversation = await Conversation.findById(message.conversationId).select('members');
+        if (conversation) {
+          const recipientCount = conversation.members.filter(
+            (memberId) => memberId.toString() !== message.senderId.toString()
+          ).length;
 
-        if (message.readBy.length >= recipientCount) {
-          message.status = MessageStatus.READ;
-        } else if (message.status !== MessageStatus.READ) {
-          message.status = MessageStatus.DELIVERED;
+          if (message.readBy.length >= recipientCount) {
+            message.status = MessageStatus.READ;
+          } else if (message.status !== MessageStatus.READ) {
+            message.status = MessageStatus.DELIVERED;
+          }
         }
       }
 
@@ -409,8 +439,8 @@ export class MessageController {
       res.json({
         success: true,
         messageId: id,
-        readBy: message.readBy.map((id) => id.toString()),
-        deliveredTo: message.deliveredTo.map((id) => id.toString()),
+        readBy: (message.readBy || []).map((id) => id.toString()),
+        deliveredTo: (message.deliveredTo || []).map((id) => id.toString()),
         status: message.status,
       });
     } catch (error: any) {
