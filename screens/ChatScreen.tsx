@@ -8,10 +8,12 @@ import {
   Platform,
   ActivityIndicator,
   TouchableOpacity,
+  Dimensions,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { nanoid } from 'nanoid';
+// Use non-secure nanoid for React Native compatibility (doesn't require crypto)
+import { nanoid } from 'nanoid/non-secure';
 import { storageService, Message, MessageStatus } from '../services/storage';
 import { getMessages, sendMessage as sendMessageAPI, getAuthToken } from '../utils/api';
 import MessageBubble from '../components/MessageBubble';
@@ -575,10 +577,27 @@ export default function ChatScreen() {
   );
 }
 
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const MOBILE_MARGIN = SCREEN_HEIGHT * 0.05; // 5% of screen height
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        marginTop: MOBILE_MARGIN,
+        marginBottom: MOBILE_MARGIN,
+      },
+      android: {
+        marginTop: MOBILE_MARGIN,
+        marginBottom: MOBILE_MARGIN,
+      },
+      web: {
+        marginTop: 0,
+        marginBottom: 0,
+      },
+    }),
   },
   header: {
     flexDirection: 'row',

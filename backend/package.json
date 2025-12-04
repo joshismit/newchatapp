@@ -12,7 +12,9 @@
     "start:prod": "npm run build && npm start",
     "check-db": "node scripts/check-database.js",
     "create-test-data": "npm run build && node scripts/create-test-data.js",
-    "create-random-users": "node scripts/create-random-users.js"
+    "create-random-users": "node scripts/create-random-users.js",
+    "seed-dummy-data": "npm run build && node scripts/seed-dummy-data.js",
+    "add-bhavesh": "npm run build && node scripts/add-user-bhavesh.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.490.0",

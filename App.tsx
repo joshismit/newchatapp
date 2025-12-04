@@ -1,6 +1,9 @@
 // Note: expo-modules-core polyfill removed - SDK 54 handles this automatically
 // The previous polyfill was causing "Cannot override host object" errors on mobile
 
+// Import crypto polyfill for nanoid compatibility
+import './polyfills/crypto-polyfill';
+
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -193,6 +194,13 @@ export default function ConversationsListScreen() {
   };
 
   /**
+   * Navigate to QR scanner for desktop login
+   */
+  const navigateToQRScanner = () => {
+    navigation.navigate('QRScanner' as any);
+  };
+
+  /**
    * Render conversation item
    */
   const renderConversation = useCallback(
@@ -217,9 +225,23 @@ export default function ConversationsListScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Chats</Text>
-          <TouchableOpacity onPress={navigateToArchived}>
-            <Ionicons name="archive-outline" size={24} color="#25D366" />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            {/* QR Scanner Button - Only show on mobile */}
+            {Platform.OS !== 'web' && (
+              <TouchableOpacity 
+                onPress={navigateToQRScanner}
+                style={styles.headerButton}
+              >
+                <Ionicons name="qr-code-outline" size={24} color="#25D366" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity 
+              onPress={navigateToArchived}
+              style={styles.headerButton}
+            >
+              <Ionicons name="archive-outline" size={24} color="#25D366" />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#25D366" />
@@ -234,9 +256,23 @@ export default function ConversationsListScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Chats</Text>
-        <TouchableOpacity onPress={navigateToArchived}>
-          <Ionicons name="archive-outline" size={24} color="#25D366" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          {/* QR Scanner Button - Only show on mobile */}
+          {Platform.OS !== 'web' && (
+            <TouchableOpacity 
+              onPress={navigateToQRScanner}
+              style={styles.headerButton}
+            >
+              <Ionicons name="qr-code-outline" size={24} color="#25D366" />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity 
+            onPress={navigateToArchived}
+            style={styles.headerButton}
+          >
+            <Ionicons name="archive-outline" size={24} color="#25D366" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Conversations List */}
@@ -275,10 +311,27 @@ export default function ConversationsListScreen() {
   );
 }
 
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const MOBILE_MARGIN = SCREEN_HEIGHT * 0.05; // 5% of screen height
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        marginTop: MOBILE_MARGIN,
+        marginBottom: MOBILE_MARGIN,
+      },
+      android: {
+        marginTop: MOBILE_MARGIN,
+        marginBottom: MOBILE_MARGIN,
+      },
+      web: {
+        marginTop: 0,
+        marginBottom: 0,
+      },
+    }),
   },
   header: {
     flexDirection: 'row',
@@ -299,6 +352,14 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#000',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerButton: {
+    padding: 4,
+    marginLeft: 12,
   },
   loadingContainer: {
     flex: 1,

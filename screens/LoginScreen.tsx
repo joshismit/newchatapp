@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -45,9 +46,12 @@ export default function LoginScreen() {
     try {
       const result = await verifyOTP(phoneNumber.trim(), otp.trim());
 
-      if (result.success && result.token && result.user) {
+      // Backend returns 'accessToken', not 'token'
+      const token = result.accessToken || result.token;
+      
+      if (result.success && token && result.user) {
         // Store token and user ID
-        await setAuthToken(result.token);
+        await setAuthToken(token);
         await setUserId(result.user.id);
 
         // Navigate directly to conversations screen (WhatsApp-like flow)
@@ -167,10 +171,27 @@ export default function LoginScreen() {
   );
 }
 
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const MOBILE_MARGIN = SCREEN_HEIGHT * 0.05; // 5% of screen height
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        marginTop: MOBILE_MARGIN,
+        marginBottom: MOBILE_MARGIN,
+      },
+      android: {
+        marginTop: MOBILE_MARGIN,
+        marginBottom: MOBILE_MARGIN,
+      },
+      web: {
+        marginTop: 0,
+        marginBottom: 0,
+      },
+    }),
   },
   content: {
     flex: 1,

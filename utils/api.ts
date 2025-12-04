@@ -60,7 +60,9 @@ export interface VerifyOTPRequest {
 
 export interface VerifyOTPResponse {
   success: boolean;
-  token?: string;
+  accessToken?: string; // Backend returns 'accessToken'
+  refreshToken?: string; // Backend also returns 'refreshToken'
+  token?: string; // Legacy support (for backward compatibility)
   user?: {
     id: string;
     name: string;
@@ -122,9 +124,14 @@ export interface SyncMessagesResponse {
 
 export interface QRConfirmResponse {
   success: boolean;
-  token?: string;
+  accessToken?: string; // Backend returns 'accessToken'
+  refreshToken?: string; // Backend also returns 'refreshToken'
+  token?: string; // Legacy support (for backward compatibility)
   user?: {
     id: string;
+    name?: string;
+    phone?: string;
+    avatarUrl?: string | null;
   };
   error?: string;
 }
@@ -173,11 +180,31 @@ export const sendOTP = async (phone: string): Promise<SendOTPResponse> => {
 export const verifyOTP = async (phone: string, otp: string): Promise<VerifyOTPResponse> => {
   try {
     console.log('Attempting to verify OTP:', API_BASE_URL);
-    const response = await api.post<VerifyOTPResponse>('/auth/verify-otp', {
+    const response = await api.post<any>('/auth/verify-otp', {
       phone,
       otp,
     });
-    return response.data;
+    
+    // Normalize response: backend returns 'accessToken', frontend expects 'token'
+    const data = response.data;
+    const normalizedData: VerifyOTPResponse = {
+      success: data.success,
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      token: data.accessToken || data.token, // Use accessToken as token for compatibility
+      user: data.user,
+      error: data.error,
+    };
+    
+    console.log('OTP verification response:', {
+      success: normalizedData.success,
+      hasAccessToken: !!normalizedData.accessToken,
+      hasToken: !!normalizedData.token,
+      hasUser: !!normalizedData.user,
+      error: normalizedData.error,
+    });
+    
+    return normalizedData;
   } catch (error: any) {
     console.error('Verify OTP API error:', {
       message: error.message,
@@ -313,10 +340,30 @@ export const checkQRStatus = async (challengeId: string): Promise<QRStatusRespon
  */
 export const confirmQRChallenge = async (challengeId: string): Promise<QRConfirmResponse> => {
   try {
-    const response = await api.post<QRConfirmResponse>('/auth/qr-confirm', {
+    const response = await api.post<any>('/auth/qr-confirm', {
       challengeId,
     });
-    return response.data;
+    
+    // Normalize response: backend returns 'accessToken', frontend expects 'token'
+    const data = response.data;
+    const normalizedData: QRConfirmResponse = {
+      success: data.success,
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      token: data.accessToken || data.token, // Use accessToken as token for compatibility
+      user: data.user,
+      error: data.error,
+    };
+    
+    console.log('QR confirmation response:', {
+      success: normalizedData.success,
+      hasAccessToken: !!normalizedData.accessToken,
+      hasToken: !!normalizedData.token,
+      hasUser: !!normalizedData.user,
+      error: normalizedData.error,
+    });
+    
+    return normalizedData;
   } catch (error: any) {
     if (error.response) {
       return {

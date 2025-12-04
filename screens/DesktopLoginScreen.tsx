@@ -149,9 +149,12 @@ export default function DesktopLoginScreen() {
     try {
       const result = await confirmQRChallenge(challengeId);
 
-      if (result.success && result.token && result.user) {
+      // Backend returns 'accessToken', normalize to 'token' for compatibility
+      const token = result.accessToken || result.token;
+      
+      if (result.success && token && result.user) {
         // Save JWT token and user ID
-        await setAuthToken(result.token);
+        await setAuthToken(token);
         if (result.user.id) {
           await setUserId(result.user.id);
         }
