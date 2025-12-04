@@ -118,7 +118,6 @@ const MessageSchema = new Schema<IMessage>(
     },
     clientId: {
       type: String,
-      index: true,
       sparse: true, // Allows null/undefined but indexes when present
     },
     deliveredTo: [

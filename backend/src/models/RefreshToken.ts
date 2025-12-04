@@ -30,7 +30,6 @@ const RefreshTokenSchema = new Schema<IRefreshToken>(
       type: String,
       required: true,
       unique: true,
-      index: true,
     },
     accessToken: {
       type: String,
@@ -39,7 +38,6 @@ const RefreshTokenSchema = new Schema<IRefreshToken>(
     deviceId: {
       type: String,
       required: false,
-      index: true,
     },
     deviceType: {
       type: String,
@@ -59,7 +57,6 @@ const RefreshTokenSchema = new Schema<IRefreshToken>(
     expiresAt: {
       type: Date,
       required: true,
-      index: { expireAfterSeconds: 0 }, // Auto-delete expired tokens
     },
     lastUsedAt: {
       type: Date,
@@ -81,6 +78,7 @@ RefreshTokenSchema.index({ userId: 1, deviceType: 1 });
 RefreshTokenSchema.index({ token: 1 }, { unique: true });
 RefreshTokenSchema.index({ userId: 1, lastUsedAt: -1 });
 RefreshTokenSchema.index({ deviceId: 1 });
+RefreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index for auto-deletion
 
 // Also create Session model alias for clarity
 export const Session = mongoose.model<IRefreshToken>('Session', RefreshTokenSchema);

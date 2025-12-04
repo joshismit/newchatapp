@@ -14,12 +14,10 @@ const QRChallengeSchema = new Schema<IQRChallenge>(
       type: String,
       required: true,
       unique: true,
-      index: true,
     },
     expiresAt: {
       type: Date,
       required: true,
-      index: { expireAfterSeconds: 0 }, // TTL index for auto-deletion
     },
     authorizedUserId: {
       type: Schema.Types.ObjectId,
@@ -37,8 +35,8 @@ const QRChallengeSchema = new Schema<IQRChallenge>(
 );
 
 // Index for faster token lookups
-QRChallengeSchema.index({ token: 1 });
-QRChallengeSchema.index({ expiresAt: 1 });
+QRChallengeSchema.index({ token: 1 }, { unique: true });
+QRChallengeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index for auto-deletion
 
 export const QRChallenge = mongoose.model<IQRChallenge>('QRChallenge', QRChallengeSchema);
 
