@@ -3,14 +3,12 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
-// SSE routes
-import sseRoutes from './routes/sseRoutes';
 import { getMongoURI } from './utils/dbConfig';
 
 dotenv.config();
 
 const app: Express = express();
-// Render provides PORT via environment variable
+// PORT from environment variable or default to 3000
 const PORT = parseInt(process.env.PORT || '3000', 10);
 // MongoDB connection - uses MONGO_URI from environment variables
 const MONGO_URI = getMongoURI();
@@ -47,9 +45,26 @@ import authRoutes from './routes/authRoutes';
 import messageRoutes from './routes/messageRoutes';
 import conversationRoutes from './routes/conversationRoutes';
 import attachmentRoutes from './routes/attachmentRoutes';
+import qrRoutes from './routes/qrRoutes';
+import sessionRoutes from './routes/sessionRoutes';
+import sseRoutes from './routes/sseRoutes';
+
+// Authentication routes
 app.use('/auth', authRoutes);
-app.use('/sse', sseRoutes);
+
+// QR code routes
+app.use('/qr', qrRoutes);
+
+// Session management routes
+app.use('/sessions', sessionRoutes);
+
+// Message routes
 app.use('/messages', messageRoutes);
+// SSE route for messages (alias)
+app.use('/messages/sse', sseRoutes);
+
+// Other routes
+app.use('/sse', sseRoutes);
 app.use('/conversations', conversationRoutes);
 app.use('/attachments', attachmentRoutes);
 // app.use('/api/chat', chatRoutes);
@@ -81,8 +96,7 @@ mongoose
       });
     
     // Start server
-    // Render automatically provides PORT via environment variable
-    // Listen on all interfaces (0.0.0.0) for Render deployment
+    // Listen on all interfaces (0.0.0.0) to accept connections from network
     const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '0.0.0.0';
     app.listen(PORT, host, () => {
       console.log(`🚀 Server running on port ${PORT}`);

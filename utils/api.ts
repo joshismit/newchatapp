@@ -43,12 +43,22 @@ api.interceptors.request.use(
   }
 );
 
-export interface LoginRequest {
+export interface SendOTPRequest {
   phone: string;
-  password: string;
 }
 
-export interface LoginResponse {
+export interface SendOTPResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface VerifyOTPRequest {
+  phone: string;
+  otp: string;
+}
+
+export interface VerifyOTPResponse {
   success: boolean;
   token?: string;
   user?: {
@@ -85,6 +95,31 @@ export interface QRStatusResponse {
   };
 }
 
+export interface SyncMessagesResponse {
+  success: boolean;
+  conversations: Array<{
+    conversationId: string;
+    messages: Array<{
+      id: string;
+      conversationId: string;
+      senderId: string;
+      receiverId: string;
+      content: string;
+      type: string;
+      status: string;
+      timestamp: string;
+      sender?: {
+        id: string;
+        name: string;
+        avatarUrl?: string;
+      };
+    }>;
+    lastMessageAt?: string;
+  }>;
+  count?: number;
+  error?: string;
+}
+
 export interface QRConfirmResponse {
   success: boolean;
   token?: string;
@@ -95,35 +130,34 @@ export interface QRConfirmResponse {
 }
 
 /**
- * Login with phone and password
+ * Send OTP to phone number
  */
-export const login = async (phone: string, password: string): Promise<LoginResponse> => {
+export const sendOTP = async (phone: string): Promise<SendOTPResponse> => {
   try {
-    console.log('Attempting login to:', API_BASE_URL);
-    const response = await api.post<LoginResponse>('/auth/login', {
+    console.log('Attempting to send OTP to:', API_BASE_URL);
+    const response = await api.post<SendOTPResponse>('/auth/send-otp', {
       phone,
-      password,
     });
     return response.data;
   } catch (error: any) {
-    console.error('Login API error:', {
+    console.error('Send OTP API error:', {
       message: error.message,
       code: error.code,
       response: error.response?.data,
-      url: `${API_BASE_URL}/auth/login`,
+      url: `${API_BASE_URL}/auth/send-otp`,
     });
     
     if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.message?.includes('Network Error')) {
       return {
         success: false,
-        error: `Cannot connect to server at ${API_BASE_URL}. Please ensure the backend is running and the API URL is correct.`,
+        error: `Cannot connect to server at ${API_BASE_URL}. Please ensure the backend server is running and the API URL is correct.`,
       };
     }
     
     if (error.response) {
       return {
         success: false,
-        error: error.response.data?.error || 'Failed to login',
+        error: error.response.data?.error || 'Failed to send OTP',
       };
     }
     return {
@@ -134,18 +168,62 @@ export const login = async (phone: string, password: string): Promise<LoginRespo
 };
 
 /**
- * Scan QR code and authorize desktop login
- * Note: userId is now extracted from JWT token (authentication middleware)
- * The userId parameter is kept for backward compatibility but not sent to backend
+ * Verify OTP and login
+ */
+export const verifyOTP = async (phone: string, otp: string): Promise<VerifyOTPResponse> => {
+  try {
+    console.log('Attempting to verify OTP:', API_BASE_URL);
+    const response = await api.post<VerifyOTPResponse>('/auth/verify-otp', {
+      phone,
+      otp,
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('Verify OTP API error:', {
+      message: error.message,
+      code: error.code,
+      response: error.response?.data,
+      url: `${API_BASE_URL}/auth/verify-otp`,
+    });
+    
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.message?.includes('Network Error')) {
+      return {
+        success: false,
+        error: `Cannot connect to server at ${API_BASE_URL}. Please ensure the backend server is running and the API URL is correct.`,
+      };
+    }
+    
+    if (error.response) {
+      return {
+        success: false,
+        error: error.response.data?.error || 'Failed to verify OTP',
+      };
+    }
+    return {
+      success: false,
+      error: error.message || 'Network error. Please check your connection.',
+    };
+  }
+};
+
+/**
+ * Scan QR code and authorize desktop login (Mobile only)
+ * 
+ * Requirements:
+ * - Mobile must be authenticated (JWT token in Authorization header)
+ * - QR token (UUID) from scanned QR code
+ * - Backend creates desktop session token (long-lived)
  */
 export const scanQRCode = async (
   token: string,
-  userId?: string // Optional, kept for compatibility but not used
+  userId?: string // Not used - userId comes from JWT token in Authorization header
 ): Promise<QRScanResponse> => {
   try {
-    // Backend now gets userId from JWT token via authentication middleware
+    // Send QR token (UUID) to backend
+    // Backend extracts userId from JWT token (authentication middleware)
+    // This ensures only authenticated mobile devices can authorize desktop sessions
     const response = await api.post<QRScanResponse>('/auth/qr-scan', {
-      token,
+      token, // UUID token from QR code
     });
     return response.data;
   } catch (error: any) {
@@ -504,6 +582,39 @@ export interface CreateConversationResponse {
   alreadyExists?: boolean;
   error?: string;
 }
+
+/**
+ * Sync recent messages for desktop (WhatsApp-like initial sync)
+ * Returns recent messages from all conversations
+ */
+export const syncMessages = async (
+  limit?: number,
+  days?: number
+): Promise<SyncMessagesResponse> => {
+  try {
+    const params: any = {};
+    if (limit) params.limit = limit;
+    if (days) params.days = days;
+    
+    const response = await api.get<SyncMessagesResponse>('/auth/sync-messages', {
+      params,
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.response) {
+      return {
+        success: false,
+        conversations: [],
+        error: error.response.data?.error || 'Failed to sync messages',
+      };
+    }
+    return {
+      success: false,
+      conversations: [],
+      error: error.message || 'Network error',
+    };
+  }
+};
 
 /**
  * Create a new conversation

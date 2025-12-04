@@ -14,25 +14,36 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
-import { login, setAuthToken, setUserId } from '../utils/api';
+import { verifyOTP, setAuthToken, setUserId } from '../utils/api';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function LoginScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [phoneNumber, setPhoneNumber] = React.useState('');
-  const [password, setPassword] = React.useState('');
+  const [otp, setOtp] = React.useState('test123'); // Pre-fill with default OTP
+  const [step, setStep] = React.useState<'phone' | 'otp'>('phone');
   const [loading, setLoading] = React.useState(false);
 
+  const handlePhoneSubmit = () => {
+    if (!phoneNumber.trim()) {
+      Alert.alert('Error', 'Please enter your phone number');
+      return;
+    }
+
+    // Navigate to OTP step directly (no need to send OTP API call)
+    setStep('otp');
+  };
+
   const handleLogin = async () => {
-    if (!phoneNumber.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please enter both phone number and password');
+    if (!otp.trim()) {
+      Alert.alert('Error', 'Please enter the OTP');
       return;
     }
 
     setLoading(true);
     try {
-      const result = await login(phoneNumber.trim(), password);
+      const result = await verifyOTP(phoneNumber.trim(), otp.trim());
 
       if (result.success && result.token && result.user) {
         // Store token and user ID
@@ -42,26 +53,17 @@ export default function LoginScreen() {
         // Navigate directly to conversations screen (WhatsApp-like flow)
         navigation.replace('Conversations');
       } else {
-        Alert.alert('Login Failed', result.error || 'Invalid credentials');
+        Alert.alert('Login Failed', result.error || 'Invalid phone number or OTP');
       }
     } catch (error: any) {
       console.error('Login error:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Network error. Please check your connection and ensure the backend server is running.';
-      Alert.alert('Login Error', errorMessage);
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleScanQR = () => {
-    // Mobile: Navigate to QR scanner
-    navigation.navigate('QRScanner');
-  };
-
-  const handleDesktopLogin = () => {
-    // Desktop/Web: Navigate to desktop login (QR code display)
-    navigation.navigate('DesktopLogin');
-  };
 
   return (
     <KeyboardAvoidingView
@@ -74,74 +76,91 @@ export default function LoginScreen() {
         </View>
 
         <Text style={styles.title}>Welcome</Text>
-        <Text style={styles.subtitle}>Sign in to continue</Text>
+        <Text style={styles.subtitle}>
+          {step === 'phone' ? 'Enter your phone number' : 'Enter OTP to verify'}
+        </Text>
 
-        <View style={styles.inputContainer}>
-          <Ionicons
-            name="call-outline"
-            size={20}
-            color="#666"
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Phone Number"
-            placeholderTextColor="#999"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="phone-pad"
-            autoCapitalize="none"
-          />
-        </View>
+        {step === 'phone' ? (
+          <>
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="call-outline"
+                size={20}
+                color="#666"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Phone Number"
+                placeholderTextColor="#999"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                keyboardType="phone-pad"
+                autoCapitalize="none"
+                editable={!loading}
+                onSubmitEditing={handlePhoneSubmit}
+                returnKeyType="next"
+              />
+            </View>
 
-        <View style={styles.inputContainer}>
-          <Ionicons
-            name="lock-closed-outline"
-            size={20}
-            color="#666"
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-          />
-        </View>
+            <TouchableOpacity 
+              style={[styles.loginButton, loading && styles.loginButtonDisabled]} 
+              onPress={handlePhoneSubmit}
+              disabled={loading}
+            >
+              <Text style={styles.loginButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color="#666"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter OTP"
+                placeholderTextColor="#999"
+                value={otp}
+                onChangeText={setOtp}
+                keyboardType="default"
+                autoCapitalize="none"
+                editable={!loading}
+                onSubmitEditing={handleLogin}
+                returnKeyType="done"
+              />
+            </View>
 
-        <TouchableOpacity 
-          style={[styles.loginButton, loading && styles.loginButtonDisabled]} 
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.loginButtonText}>Login</Text>
-          )}
-        </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.loginButton, loading && styles.loginButtonDisabled]} 
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.loginButtonText}>Login</Text>
+              )}
+            </TouchableOpacity>
 
-        <TouchableOpacity style={styles.forgotPassword}>
-          <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-        </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => {
+                setStep('phone');
+                setOtp('test123'); // Reset to default OTP
+              }}
+              disabled={loading}
+            >
+              <Text style={styles.backButtonText}>Change Phone Number</Text>
+            </TouchableOpacity>
 
-        {/* Mobile: Scan QR Code button */}
-        {Platform.OS !== 'web' && (
-          <TouchableOpacity style={styles.qrButton} onPress={handleScanQR}>
-            <Ionicons name="qr-code-outline" size={20} color="#25D366" />
-            <Text style={styles.qrButtonText}>Scan QR Code for Desktop Login</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Desktop/Web: Show QR Code button */}
-        {Platform.OS === 'web' && (
-          <TouchableOpacity style={styles.qrButton} onPress={handleDesktopLogin}>
-            <Ionicons name="qr-code-outline" size={20} color="#25D366" />
-            <Text style={styles.qrButtonText}>Login with QR Code</Text>
-          </TouchableOpacity>
+            <Text style={styles.otpHint}>
+              Default OTP: <Text style={styles.otpHintBold}>test123</Text>
+            </Text>
+          </>
         )}
       </View>
     </KeyboardAvoidingView>
@@ -209,29 +228,23 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  forgotPassword: {
+  backButton: {
     alignItems: 'center',
+    marginTop: 16,
   },
-  forgotPasswordText: {
+  backButtonText: {
     color: '#25D366',
     fontSize: 14,
   },
-  qrButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#25D366',
-  },
-  qrButtonText: {
-    color: '#25D366',
+  otpHint: {
+    textAlign: 'center',
+    color: '#666',
     fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
+    marginTop: 16,
+  },
+  otpHintBold: {
+    fontWeight: 'bold',
+    color: '#25D366',
   },
 });
 

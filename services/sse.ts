@@ -63,12 +63,15 @@ export type SSEEventType =
   | 'message'
   | 'message:new'
   | 'message:status'
+  | 'message:sync'
   | 'conversation:new'
   | 'conversation:updated'
   | 'user:typing'
   | 'user:online'
   | 'user:offline'
-  | 'notification';
+  | 'notification'
+  | 'sync:initial'
+  | 'sync:error';
 
 export interface SSEEvent {
   id?: string;
@@ -220,6 +223,19 @@ class SSEService {
 
       this.eventSource.addEventListener('notification', (event: any) => {
         this.handleEvent(event, 'notification');
+      });
+
+      // Handle sync events (for desktop initial sync)
+      this.eventSource.addEventListener('sync:initial', (event: any) => {
+        this.handleEvent(event, 'sync:initial');
+      });
+
+      this.eventSource.addEventListener('sync:error', (event: any) => {
+        this.handleEvent(event, 'sync:error');
+      });
+
+      this.eventSource.addEventListener('message:sync', (event: any) => {
+        this.handleEvent(event, 'message:sync');
       });
     } catch (error) {
       console.error('Error establishing SSE connection:', error);

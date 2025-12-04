@@ -105,7 +105,7 @@ class SSEManager {
   /**
    * Send event to a specific client
    */
-  private sendEventToClient(clientId: string, event: SSEEvent): boolean {
+  sendEventToClient(clientId: string, event: SSEEvent): boolean {
     const client = this.clients.get(clientId);
     if (!client) {
       return false;

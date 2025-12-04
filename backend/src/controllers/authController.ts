@@ -2,30 +2,59 @@ import { Request, Response } from 'express';
 import { authService } from '../services/authService';
 import { signToken } from '../utils/jwt';
 import { AuthRequest } from '../middleware/auth';
+import { messageSyncService } from '../services/messageSyncService';
 
 export class AuthController {
   /**
-   * POST /auth/login
-   * Login with phone and password
+   * POST /auth/send-otp
+   * Send OTP to phone number
    */
-  login = async (req: Request, res: Response): Promise<void> => {
+  sendOTP = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { phone, password } = req.body;
+      const { phone } = req.body;
 
-      if (!phone || !password) {
-        res.status(400).json({ error: 'Phone and password are required' });
+      if (!phone) {
+        res.status(400).json({ error: 'Phone number is required' });
         return;
       }
 
-      const result = await authService.login(phone, password);
+      const result = await authService.sendOTP(phone);
+
+      if (!result.success) {
+        res.status(400).json({ error: result.error });
+        return;
+      }
+
+      res.json({
+        success: true,
+        message: 'OTP sent successfully',
+      });
+    } catch (error) {
+      console.error('Error sending OTP:', error);
+      res.status(500).json({ error: 'Failed to send OTP' });
+    }
+  };
+
+  /**
+   * POST /auth/verify-otp
+   * Verify OTP and login (Mobile only - Master device)
+   * Returns access token and refresh token
+   */
+  verifyOTP = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { phone, otp, deviceId } = req.body;
+
+      if (!phone || !otp) {
+        res.status(400).json({ error: 'Phone number and OTP are required' });
+        return;
+      }
+
+      const result = await authService.verifyOTP(phone, otp, deviceId);
 
       if (!result.success) {
         res.status(401).json({ error: result.error });
         return;
       }
-
-      // Create JWT token
-      const jwtToken = signToken({ userId: result.user!._id.toString() });
 
       // Return user info (without password)
       const userObj = result.user!.toObject();
@@ -33,7 +62,8 @@ export class AuthController {
 
       res.json({
         success: true,
-        token: jwtToken,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
         user: {
           id: userObj._id.toString(),
           name: userObj.name,
@@ -42,8 +72,68 @@ export class AuthController {
         },
       });
     } catch (error) {
-      console.error('Error during login:', error);
-      res.status(500).json({ error: 'Failed to login' });
+      console.error('Error during OTP verification:', error);
+      res.status(500).json({ error: 'Failed to verify OTP' });
+    }
+  };
+
+  /**
+   * POST /auth/refresh-token
+   * Refresh access token using refresh token
+   */
+  refreshToken = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { refreshToken } = req.body;
+
+      if (!refreshToken) {
+        res.status(400).json({ error: 'Refresh token is required' });
+        return;
+      }
+
+      const result = await authService.refreshAccessToken(refreshToken);
+
+      if (!result.success) {
+        res.status(401).json({ error: result.error });
+        return;
+      }
+
+      res.json({
+        success: true,
+        accessToken: result.accessToken,
+      });
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      res.status(500).json({ error: 'Failed to refresh token' });
+    }
+  };
+
+  /**
+   * POST /auth/logout
+   * Revoke refresh token (logout)
+   */
+  logout = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { refreshToken } = req.body;
+
+      if (!refreshToken) {
+        res.status(400).json({ error: 'Refresh token is required' });
+        return;
+      }
+
+      const result = await authService.revokeRefreshToken(refreshToken);
+
+      if (!result.success) {
+        res.status(400).json({ error: result.error });
+        return;
+      }
+
+      res.json({
+        success: true,
+        message: 'Logged out successfully',
+      });
+    } catch (error) {
+      console.error('Error during logout:', error);
+      res.status(500).json({ error: 'Failed to logout' });
     }
   };
 
@@ -69,27 +159,33 @@ export class AuthController {
 
   /**
    * POST /auth/qr-scan
-   * Mobile app scans QR code and authorizes
-   * Token can come from query params (QR URL) or request body
-   * Requires authentication middleware (JWT token)
+   * Mobile app scans QR code and authorizes desktop session
+   * 
+   * Requirements:
+   * - Mobile must be authenticated (JWT token in Authorization header)
+   * - QR token (UUID) from scanned QR code
+   * - Backend creates desktop session token (long-lived)
    */
   scanQRCode = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      // Token can be in query params (from QR URL) or body
-      const token = (req.query.token as string) || req.body.token;
+      // QR token (UUID) from scanned QR code
+      const token = req.body.token;
 
       if (!token || typeof token !== 'string') {
-        res.status(400).json({ error: 'Token is required' });
+        res.status(400).json({ error: 'QR token is required' });
         return;
       }
 
-      // Get userId from authenticated user (set by authenticate middleware)
+      // Get userId from authenticated mobile user (set by authenticate middleware)
+      // This ensures only authenticated mobile devices can authorize desktop sessions
       const userId = req.user?.userId;
 
       if (!userId) {
-        res.status(401).json({ error: 'User authentication required' });
+        res.status(401).json({ error: 'Mobile authentication required. Please login on mobile first.' });
         return;
       }
+
+      console.log(`Mobile device (userId: ${userId}) authorizing QR token: ${token}`);
 
       const result = await authService.scanQRCode(token, userId);
 
@@ -98,7 +194,11 @@ export class AuthController {
         return;
       }
 
-      res.json({ success: true, challengeId: result.challengeId });
+      res.json({ 
+        success: true, 
+        challengeId: result.challengeId,
+        message: 'Desktop session authorized successfully'
+      });
     } catch (error) {
       console.error('Error scanning QR code:', error);
       res.status(500).json({ error: 'Failed to scan QR code' });
@@ -129,7 +229,8 @@ export class AuthController {
 
   /**
    * POST /auth/qr-confirm
-   * Desktop confirms QR challenge and gets JWT token
+   * Desktop confirms QR challenge and gets access token and refresh token
+   * Only works if mobile (master device) has authorized it
    */
   confirmQRChallenge = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -147,16 +248,14 @@ export class AuthController {
         return;
       }
 
-      // Create JWT token
-      const jwtToken = signToken({ userId: result.token! });
-
       // Return user info (without password)
       const userObj = result.user!.toObject();
       delete userObj.password;
 
       res.json({
         success: true,
-        token: jwtToken,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
         user: {
           id: userObj._id.toString(),
           name: userObj.name,
@@ -167,6 +266,39 @@ export class AuthController {
     } catch (error) {
       console.error('Error confirming QR challenge:', error);
       res.status(500).json({ error: 'Failed to confirm QR challenge' });
+    }
+  };
+
+  /**
+   * GET /auth/sync-messages
+   * Get recent messages for desktop initial sync (WhatsApp-like)
+   * Returns recent messages from all conversations
+   */
+  syncMessages = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      const limitPerConversation = parseInt(req.query.limit as string || '50', 10);
+      const daysBack = parseInt(req.query.days as string || '7', 10);
+
+      const conversationSyncs = await messageSyncService.getRecentMessagesForUser(
+        userId,
+        limitPerConversation,
+        daysBack
+      );
+
+      res.json({
+        success: true,
+        conversations: conversationSyncs,
+        count: conversationSyncs.length,
+      });
+    } catch (error) {
+      console.error('Error syncing messages:', error);
+      res.status(500).json({ error: 'Failed to sync messages' });
     }
   };
 

@@ -35,6 +35,14 @@ if (Platform.OS !== 'web') {
   }
 }
 
+// Storage service works on all platforms (AsyncStorage works on web too)
+let storageService: any = null;
+try {
+  storageService = require('./services/storage').storageService;
+} catch (error) {
+  console.warn('Failed to load storage service:', error);
+}
+
 export type RootStackParamList = {
   Login: undefined;
   QRScanner: undefined;
@@ -128,6 +136,39 @@ export default function App() {
             }
           };
           sseService.addEventHandler(handleSSEConnected);
+
+          // Handle sync events (for desktop initial sync via SSE)
+          const handleSyncEvents = async (event: any) => {
+            if (event.type === 'sync:initial') {
+              console.log('Initial sync received via SSE:', event.data);
+              // Sync messages are already sent via message:sync events
+            } else if (event.type === 'message:sync') {
+              // Store synced message locally
+              const { message, conversationId } = event.data;
+              if (message && conversationId && storageService) {
+                try {
+                  // Convert sync message format to storage message format
+                  const storageMessage = {
+                    id: message.id,
+                    conversationId: message.conversationId || conversationId,
+                    senderId: message.senderId,
+                    text: message.content,
+                    status: message.status as any,
+                    createdAt: message.timestamp,
+                    deliveredTo: [],
+                    readBy: [],
+                    sender: message.sender,
+                  };
+                  await storageService.appendMessage(conversationId, storageMessage);
+                } catch (error) {
+                  console.error('Error storing synced message:', error);
+                }
+              }
+            } else if (event.type === 'sync:error') {
+              console.error('Sync error:', event.data);
+            }
+          };
+          sseService.addEventHandler(handleSyncEvents);
 
           return () => {
             sseService.removeEventHandler(handleSSEConnected);

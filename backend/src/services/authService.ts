@@ -1,10 +1,25 @@
 import mongoose from 'mongoose';
-import bcrypt from 'bcrypt';
 import { QRChallenge, IQRChallenge } from '../models/QRChallenge';
 import { User, IUser } from '../models/User';
+import { RefreshToken, IRefreshToken } from '../models/RefreshToken';
 import { generateQRToken } from '../utils/tokenGenerator';
+import {
+  signAccessToken,
+  signRefreshToken,
+  generateRefreshTokenString,
+  getRefreshTokenExpirationDate,
+} from '../utils/jwt';
 
-const QR_TOKEN_TTL_MINUTES = 2;
+// QR Token expiry: 2-5 minutes (configurable via env)
+const QR_TOKEN_TTL_MINUTES = parseInt(process.env.QR_TOKEN_TTL_MINUTES || '3', 10);
+const MIN_QR_TOKEN_TTL = 2; // Minimum 2 minutes
+const MAX_QR_TOKEN_TTL = 5; // Maximum 5 minutes
+
+// Ensure TTL is within valid range
+const QR_TOKEN_EXPIRY_MINUTES = Math.max(
+  MIN_QR_TOKEN_TTL,
+  Math.min(MAX_QR_TOKEN_TTL, QR_TOKEN_TTL_MINUTES)
+);
 
 export interface QRChallengeResponse {
   challengeId: string;
@@ -21,65 +36,197 @@ export interface QRStatusResponse {
 }
 
 export class AuthService {
+  // Default OTP for all users (as per requirement)
+  private readonly DEFAULT_OTP = 'test123';
+
   /**
-   * Login with phone and password
+   * Send OTP to phone number
+   * Currently uses default OTP "test123" for all users
    */
-  async login(phone: string, password: string): Promise<{ success: boolean; user?: IUser; error?: string }> {
+  async sendOTP(phone: string): Promise<{ success: boolean; error?: string }> {
     try {
       const trimmedPhone = phone.trim();
-      console.log('Login attempt:', { phone: trimmedPhone, passwordLength: password.length });
+      console.log('Send OTP request for phone:', trimmedPhone);
       
       // Find user by phone
       const user = await User.findOne({ phone: trimmedPhone });
       
       if (!user) {
         console.log('User not found for phone:', trimmedPhone);
-        // Debug: Check what users exist
-        const allUsers = await User.find({}).select('phone name').limit(5);
-        console.log('Available users:', allUsers.map(u => ({ phone: u.phone, name: u.name })));
-        return { success: false, error: 'Invalid phone number or password' };
+        return { success: false, error: 'User not found. Please contact support.' };
       }
       
-      console.log('User found:', { id: user._id, phone: user.phone, name: user.name, hasPassword: !!user.password });
-
-      // Check if user has a password
-      if (!user.password) {
-        return { success: false, error: 'User account not set up. Please contact support.' };
-      }
-
-      // Verify password
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      console.log('Password verification:', isPasswordValid);
+      console.log('OTP sent (using default OTP) for user:', { id: user._id, phone: user.phone, name: user.name });
       
-      if (!isPasswordValid) {
-        return { success: false, error: 'Invalid phone number or password' };
-      }
-
-      // Return user (password will be excluded by toObject)
-      return { success: true, user };
+      // In a real implementation, you would send OTP via SMS service
+      // For now, we just return success as OTP is "test123" for all users
+      return { success: true };
     } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: 'Login failed. Please try again.' };
+      console.error('Send OTP error:', error);
+      return { success: false, error: 'Failed to send OTP. Please try again.' };
     }
   }
 
   /**
-   * Create a new QR challenge
+   * Verify OTP and login (Mobile only - Master device)
+   * Generates access token and refresh token
+   */
+  async verifyOTP(
+    phone: string,
+    otp: string,
+    deviceId?: string
+  ): Promise<{
+    success: boolean;
+    user?: IUser;
+    accessToken?: string;
+    refreshToken?: string;
+    error?: string;
+  }> {
+    try {
+      const trimmedPhone = phone.trim();
+      console.log('OTP verification attempt (Mobile):', { phone: trimmedPhone, otpLength: otp.length });
+      
+      // Find user by phone
+      const user = await User.findOne({ phone: trimmedPhone });
+      
+      if (!user) {
+        console.log('User not found for phone:', trimmedPhone);
+        return { success: false, error: 'Invalid phone number or OTP' };
+      }
+      
+      console.log('User found:', { id: user._id, phone: user.phone, name: user.name });
+
+      // Verify OTP (using default OTP "test123")
+      if (otp !== this.DEFAULT_OTP) {
+        console.log('Invalid OTP provided');
+        return { success: false, error: 'Invalid OTP' };
+      }
+
+      console.log('OTP verified successfully');
+
+      // Generate tokens
+      const accessToken = signAccessToken({ userId: user._id.toString(), phone: user.phone });
+      const refreshTokenString = generateRefreshTokenString();
+      const refreshToken = signRefreshToken({ userId: user._id.toString(), phone: user.phone });
+
+      // Store refresh token in database
+      const expiresAt = getRefreshTokenExpirationDate();
+      await RefreshToken.create({
+        userId: user._id,
+        token: refreshTokenString,
+        deviceId: deviceId,
+        deviceType: 'mobile',
+        expiresAt,
+      });
+
+      console.log('Refresh token stored in database');
+
+      // Return user and tokens
+      return {
+        success: true,
+        user,
+        accessToken,
+        refreshToken: refreshTokenString, // Return the database token string, not JWT
+      };
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      return { success: false, error: 'OTP verification failed. Please try again.' };
+    }
+  }
+
+  /**
+   * Refresh access token using refresh token
+   */
+  async refreshAccessToken(
+    refreshTokenString: string
+  ): Promise<{
+    success: boolean;
+    accessToken?: string;
+    error?: string;
+  }> {
+    try {
+      // Find refresh token in database
+      const refreshTokenDoc = await RefreshToken.findOne({ token: refreshTokenString });
+
+      if (!refreshTokenDoc) {
+        console.log('Refresh token not found in database');
+        return { success: false, error: 'Invalid refresh token' };
+      }
+
+      // Check if expired
+      if (new Date() > refreshTokenDoc.expiresAt) {
+        console.log('Refresh token expired');
+        // Delete expired token
+        await RefreshToken.findByIdAndDelete(refreshTokenDoc._id);
+        return { success: false, error: 'Refresh token expired' };
+      }
+
+      // Get user
+      const user = await User.findById(refreshTokenDoc.userId);
+      if (!user) {
+        console.log('User not found for refresh token');
+        return { success: false, error: 'User not found' };
+      }
+
+      // Generate new access token
+      const accessToken = signAccessToken({
+        userId: user._id.toString(),
+        phone: user.phone,
+      });
+
+      console.log('Access token refreshed successfully');
+
+      return {
+        success: true,
+        accessToken,
+      };
+    } catch (error) {
+      console.error('Refresh token error:', error);
+      return { success: false, error: 'Failed to refresh token' };
+    }
+  }
+
+  /**
+   * Revoke refresh token (logout)
+   */
+  async revokeRefreshToken(refreshTokenString: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const result = await RefreshToken.deleteOne({ token: refreshTokenString });
+      if (result.deletedCount > 0) {
+        console.log('Refresh token revoked');
+        return { success: true };
+      }
+      return { success: false, error: 'Refresh token not found' };
+    } catch (error) {
+      console.error('Revoke token error:', error);
+      return { success: false, error: 'Failed to revoke token' };
+    }
+  }
+
+  /**
+   * Create a new QR challenge (Desktop)
+   * Generates temporary UUID token with 2-5 min expiry
+   * Returns token for QR code display and challengeId for polling
    */
   async createQRChallenge(apiBaseUrl: string): Promise<QRChallengeResponse> {
+    // Generate UUID token
     const token = generateQRToken();
-    const expiresAt = new Date(Date.now() + QR_TOKEN_TTL_MINUTES * 60 * 1000);
+    const expiresAt = new Date(Date.now() + QR_TOKEN_EXPIRY_MINUTES * 60 * 1000);
 
     const challenge = await QRChallenge.create({
       token,
       expiresAt,
     });
 
-    const qrPayload = `${apiBaseUrl}/auth/qr-scan?token=${token}`;
+    // QR code should display just the token (UUID)
+    // Desktop will poll /auth/qr-status?challengeId=... to check approval
+    const qrPayload = token; // Just the UUID token, not full URL
+
+    console.log(`QR Challenge created: ${challenge._id}, token: ${token}, expires in ${QR_TOKEN_EXPIRY_MINUTES} minutes`);
 
     return {
       challengeId: challenge._id.toString(),
-      qrPayload,
+      qrPayload, // UUID token for QR code
     };
   }
 
@@ -154,7 +301,13 @@ export class AuthService {
    */
   async confirmQRChallenge(
     challengeId: string
-  ): Promise<{ success: boolean; token?: string; user?: IUser; error?: string }> {
+  ): Promise<{
+    success: boolean;
+    accessToken?: string;
+    refreshToken?: string;
+    user?: IUser;
+    error?: string;
+  }> {
     const challenge = await QRChallenge.findById(challengeId);
 
     if (!challenge) {
@@ -166,9 +319,9 @@ export class AuthService {
       return { success: false, error: 'Challenge expired' };
     }
 
-    // Check if authorized
+    // Check if authorized by mobile (master device)
     if (!challenge.authorizedUserId) {
-      return { success: false, error: 'Challenge not authorized' };
+      return { success: false, error: 'Challenge not authorized by mobile device' };
     }
 
     // Get user information
@@ -177,13 +330,30 @@ export class AuthService {
       return { success: false, error: 'User not found' };
     }
 
+    // Generate tokens for desktop session
+    const accessToken = signAccessToken({ userId: user._id.toString(), phone: user.phone });
+    const refreshTokenString = generateRefreshTokenString();
+    const refreshToken = signRefreshToken({ userId: user._id.toString(), phone: user.phone });
+
+    // Store refresh token for desktop device
+    const expiresAt = getRefreshTokenExpirationDate();
+    await RefreshToken.create({
+      userId: user._id,
+      token: refreshTokenString,
+      deviceType: 'desktop',
+      expiresAt,
+    });
+
     // Delete challenge (one-time use)
     await QRChallenge.findByIdAndDelete(challengeId);
 
+    console.log('Desktop session created via QR code');
+
     return {
       success: true,
-      token: challenge.authorizedUserId.toString(), // Return user ID, JWT will be created in controller
-      user, // Return user object for frontend
+      accessToken,
+      refreshToken: refreshTokenString, // Return database token string
+      user,
     };
   }
 

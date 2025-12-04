@@ -21,6 +21,15 @@ router.post('/send', authenticate, messageController.sendMessage);
 router.get('/', authenticate, messageController.getMessages);
 
 /**
+ * GET /messages/history
+ * Alias for GET /messages (for compatibility)
+ * Get paginated messages for a conversation
+ * Requires: JWT authentication
+ * Query params: conversationId, before? (ISO timestamp), limit? (default: 20, max: 100)
+ */
+router.get('/history', authenticate, messageController.getMessages);
+
+/**
  * POST /messages/:id/delivered
  * Mark message as delivered
  * Requires: JWT authentication

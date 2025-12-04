@@ -1,10 +1,11 @@
-import { customAlphabet } from 'nanoid';
+import { randomUUID } from 'crypto';
 
-// Generate random token for QR challenges (alphanumeric, 32 chars)
-const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-const generateToken = customAlphabet(alphabet, 32);
-
+/**
+ * Generate temporary QR token (UUID)
+ * Used for QR code device linking
+ * Expires in 2-5 minutes
+ */
 export const generateQRToken = (): string => {
-  return generateToken();
+  return randomUUID();
 };
 

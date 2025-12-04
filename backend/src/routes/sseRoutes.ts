@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { sseManager } from '../sse';
 import { verifyToken } from '../utils/jwt';
+import { messageSyncService } from '../services/messageSyncService';
 
 const router = Router();
 
@@ -52,12 +53,63 @@ router.get('/connect', async (req: Request, res: Response): Promise<void> => {
       }
     }
 
+    // Detect device type from user agent or query param
+    const userAgent = req.headers['user-agent'] || '';
+    const deviceType = req.query.deviceType as string || (userAgent.includes('Desktop') || userAgent.includes('Web') ? 'desktop' : 'mobile');
+    const isDesktop = deviceType === 'desktop';
+
     // Register client
     const clientId = sseManager.registerClient(userId, res, {
       userId,
       conversationIds,
       lastEventId,
     });
+
+    // If desktop session, send initial message sync (WhatsApp-like)
+    if (isDesktop && userId) {
+      console.log(`Desktop session detected for user ${userId}, loading recent messages...`);
+      
+      // Load recent messages asynchronously and send via SSE
+      messageSyncService.getRecentMessagesForUser(userId, 50, 7)
+        .then((conversationSyncs) => {
+          // Send initial sync event
+          sseManager.sendEventToClient(clientId, {
+            event: 'sync:initial',
+            data: {
+              type: 'initial_sync',
+              conversations: conversationSyncs,
+              timestamp: new Date().toISOString(),
+            },
+          });
+
+          // Send individual message events for each conversation
+          conversationSyncs.forEach((sync) => {
+            sync.messages.forEach((message) => {
+              sseManager.sendEventToClient(clientId, {
+                event: 'message:sync',
+                data: {
+                  type: 'message_sync',
+                  message,
+                  conversationId: sync.conversationId,
+                },
+              });
+            });
+          });
+
+          console.log(`Sent ${conversationSyncs.length} conversation syncs to desktop client ${clientId}`);
+        })
+        .catch((error) => {
+          console.error('Error loading recent messages for desktop sync:', error);
+          // Send error event but don't fail the connection
+          sseManager.sendEventToClient(clientId, {
+            event: 'sync:error',
+            data: {
+              type: 'sync_error',
+              error: 'Failed to load recent messages',
+            },
+          });
+        });
+    }
 
     // Handle client disconnect
     req.on('close', () => {

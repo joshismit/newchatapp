@@ -17,7 +17,9 @@ import {
   confirmQRChallenge,
   setAuthToken,
   setUserId,
+  syncMessages,
 } from '../utils/api';
+import { storageService } from '../services/storage';
 import type { RootStackParamList } from '../App';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -152,6 +154,37 @@ export default function DesktopLoginScreen() {
         await setAuthToken(result.token);
         if (result.user.id) {
           await setUserId(result.user.id);
+        }
+
+        // Sync recent messages (WhatsApp-like initial sync)
+        try {
+          console.log('Syncing recent messages for desktop...');
+          const syncResult = await syncMessages(50, 7); // Last 50 messages per conversation, last 7 days
+          
+          if (syncResult.success && syncResult.conversations) {
+            // Store synced messages locally
+            for (const convSync of syncResult.conversations) {
+              // Convert sync message format to storage message format
+              const messages = convSync.messages.map((msg) => ({
+                id: msg.id,
+                conversationId: msg.conversationId,
+                senderId: msg.senderId,
+                text: msg.content,
+                status: msg.status as any,
+                createdAt: msg.timestamp,
+                deliveredTo: [],
+                readBy: [],
+                sender: msg.sender,
+              }));
+              
+              // Save conversation with messages
+              await storageService.saveConversation(convSync.conversationId, messages);
+            }
+            console.log(`Synced ${syncResult.conversations.length} conversations`);
+          }
+        } catch (syncError: any) {
+          console.error('Error syncing messages:', syncError);
+          // Don't block login if sync fails - messages will sync via SSE
         }
 
         // Automatically navigate to Conversations screen (like WhatsApp)
